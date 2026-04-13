@@ -141,6 +141,8 @@ class Board(db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     allow_public_join = db.Column(db.Boolean, default=False, nullable=False)
     theme_key = db.Column(db.String(40), default="pyrello-night", nullable=False)
+    background_image_name = db.Column(db.String(255))
+    background_image_original_name = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
 
     owner = db.relationship("User", foreign_keys=[owner_id], backref="owned_boards")

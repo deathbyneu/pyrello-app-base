@@ -30,13 +30,6 @@ from .utils import board_link, create_notification
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
-BOARD_THEME_OPTIONS = (
-    {"key": "pyrello-night", "name": "Pyrello Night"},
-    {"key": "coastal-grid", "name": "Coastal Grid"},
-    {"key": "emerald-drift", "name": "Emerald Drift"},
-    {"key": "graphite-bloom", "name": "Graphite Bloom"},
-)
-BOARD_THEME_KEYS = {option["key"] for option in BOARD_THEME_OPTIONS}
 DONE_LIST_TITLES = {"done", "complete", "completed"}
 ALLOWED_ATTACHMENT_TYPES = {
     "image/png",
@@ -79,11 +72,6 @@ def _clean_username(value: str) -> str:
     return value.strip().lower()
 
 
-def _clean_theme_key(value: Any) -> str:
-    key = str(value or "").strip()
-    return key if key in BOARD_THEME_KEYS else "pyrello-night"
-
-
 def _list_is_done(board_list: BoardList) -> bool:
     return board_list.title.strip().lower() in DONE_LIST_TITLES
 
@@ -96,14 +84,65 @@ def _task_upload_dir() -> str:
     )
 
 
+def _board_background_dir() -> str:
+    return os.path.join(
+        current_app.static_folder or "static",
+        "uploads",
+        "board_backgrounds",
+    )
+
+
 def _task_attachment_url(attachment: TaskAttachment) -> str:
     return f"/static/uploads/task_attachments/{attachment.storage_name}"
 
 
-def _remove_attachment_file(attachment: TaskAttachment) -> None:
-    file_path = os.path.join(_task_upload_dir(), attachment.storage_name)
+def _board_background_url(board: Board) -> str | None:
+    if not board.background_image_name:
+        return None
+    return f"/static/uploads/board_backgrounds/{board.background_image_name}"
+
+
+def _delete_file_if_exists(file_path: str) -> None:
     if os.path.exists(file_path):
         os.remove(file_path)
+
+
+def _remove_attachment_file(attachment: TaskAttachment) -> None:
+    file_path = os.path.join(_task_upload_dir(), attachment.storage_name)
+    _delete_file_if_exists(file_path)
+
+
+def _remove_board_background_file(board: Board) -> None:
+    if not board.background_image_name:
+        return
+    file_path = os.path.join(_board_background_dir(), board.background_image_name)
+    _delete_file_if_exists(file_path)
+
+
+def _store_uploaded_image(upload, upload_dir: str) -> dict[str, Any]:
+    content_type = (upload.mimetype or "").lower()
+    if content_type not in ALLOWED_ATTACHMENT_TYPES:
+        raise ValueError("Only PNG, JPG, WEBP, and GIF images are supported.")
+
+    safe_name = secure_filename(upload.filename) or "image"
+    _, extension = os.path.splitext(safe_name)
+    extension = extension or ATTACHMENT_EXTENSION_BY_TYPE.get(content_type, ".png")
+    storage_name = f"{uuid.uuid4().hex}{extension.lower()}"
+    os.makedirs(upload_dir, exist_ok=True)
+    save_path = os.path.join(upload_dir, storage_name)
+    upload.save(save_path)
+
+    size_bytes = os.path.getsize(save_path)
+    if size_bytes > MAX_ATTACHMENT_BYTES:
+        _delete_file_if_exists(save_path)
+        raise ValueError("Image is too large. Max size is 8 MB.")
+
+    return {
+        "original_name": safe_name if safe_name else f"image{extension}",
+        "storage_name": storage_name,
+        "content_type": content_type,
+        "size_bytes": size_bytes,
+    }
 
 
 def _serialize_attachment(attachment: TaskAttachment) -> dict[str, Any]:
@@ -237,7 +276,8 @@ def _serialize_board_summary(board: Board) -> dict[str, Any]:
         "owner_id": board.owner_id,
         "owner_username": board.owner.username,
         "allow_public_join": board.allow_public_join,
-        "theme_key": board.theme_key,
+        "background_image_url": _board_background_url(board),
+        "background_image_name": board.background_image_original_name,
         "created_at": _dt(board.created_at),
     }
 
@@ -383,7 +423,6 @@ def _serialize_board_detail(
         "pending_invites": [_serialize_board_invite(invite) for invite in pending_invites],
         "share_candidates": share_candidates,
         "memberships": [_serialize_membership(membership) for membership in memberships],
-        "available_themes": list(BOARD_THEME_OPTIONS),
         "lists": board_lists,
         "selected_task": selected_task,
     }
@@ -860,16 +899,38 @@ def api_update_board_settings(board_id: int):
     title = str(payload.get("title", "")).strip()
     description = str(payload.get("description", "")).strip()
     allow_public_join = _as_bool(payload.get("allow_public_join"))
-    theme_key = _clean_theme_key(payload.get("theme_key", board.theme_key))
+    remove_background_image = _as_bool(payload.get("remove_background_image"))
+    background_upload = request.files.get("background_image")
 
     if not title:
         return _api_error("Board title is required.")
 
+    uploaded_background = None
+    if not remove_background_image and background_upload is not None and background_upload.filename:
+        try:
+            uploaded_background = _store_uploaded_image(
+                background_upload,
+                _board_background_dir(),
+            )
+        except ValueError as error:
+            return _api_error(str(error))
+
+    old_background_name = board.background_image_name
+
     board.title = title
     board.description = description
     board.allow_public_join = allow_public_join
-    board.theme_key = theme_key
+    if remove_background_image:
+        board.background_image_name = None
+        board.background_image_original_name = None
+    if uploaded_background:
+        board.background_image_name = uploaded_background["storage_name"]
+        board.background_image_original_name = uploaded_background["original_name"]
     db.session.commit()
+
+    if old_background_name and old_background_name != board.background_image_name:
+        _delete_file_if_exists(os.path.join(_board_background_dir(), old_background_name))
+
     return _api_ok(_serialize_board_summary(board), "Board settings updated.")
 
 
@@ -892,6 +953,7 @@ def api_delete_board(board_id: int):
     )
     for attachment in attachment_query:
         _remove_attachment_file(attachment)
+    _remove_board_background_file(board)
 
     for invite in BoardInvite.query.filter_by(board_id=board.id).all():
         db.session.delete(invite)
@@ -1196,31 +1258,18 @@ def api_upload_task_attachment(board_id: int, task_id: int):
     if upload is None or not upload.filename:
         return _api_error("Please choose an image to upload.")
 
-    content_type = (upload.mimetype or "").lower()
-    if content_type not in ALLOWED_ATTACHMENT_TYPES:
-        return _api_error("Only PNG, JPG, WEBP, and GIF images are supported.")
-
-    safe_name = secure_filename(upload.filename) or "image"
-    base_name, extension = os.path.splitext(safe_name)
-    extension = extension or ATTACHMENT_EXTENSION_BY_TYPE.get(content_type, ".png")
-    storage_name = f"{uuid.uuid4().hex}{extension.lower()}"
-    upload_dir = _task_upload_dir()
-    os.makedirs(upload_dir, exist_ok=True)
-    save_path = os.path.join(upload_dir, storage_name)
-    upload.save(save_path)
-
-    size_bytes = os.path.getsize(save_path)
-    if size_bytes > MAX_ATTACHMENT_BYTES:
-        os.remove(save_path)
-        return _api_error("Image is too large. Max size is 8 MB.")
+    try:
+        stored_upload = _store_uploaded_image(upload, _task_upload_dir())
+    except ValueError as error:
+        return _api_error(str(error))
 
     attachment = TaskAttachment(
         task_id=task.id,
         uploader_id=current_user.id,
-        original_name=safe_name if safe_name else f"image{extension}",
-        storage_name=storage_name,
-        content_type=content_type,
-        size_bytes=size_bytes,
+        original_name=stored_upload["original_name"],
+        storage_name=stored_upload["storage_name"],
+        content_type=stored_upload["content_type"],
+        size_bytes=stored_upload["size_bytes"],
     )
     db.session.add(attachment)
     db.session.commit()
