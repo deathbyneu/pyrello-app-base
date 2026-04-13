@@ -3,88 +3,6 @@ const API_ORIGIN = new URL(API_BASE, window.location.href).origin;
 
 const appRoot = document.getElementById("app");
 
-const boardGradients = [
-  ["#1d4ed8", "#0891b2"],
-  ["#7c3aed", "#db2777"],
-  ["#0f766e", "#0ea5e9"],
-  ["#b45309", "#dc2626"],
-  ["#0f172a", "#334155"],
-  ["#14532d", "#15803d"],
-  ["#1e3a8a", "#1d4ed8"],
-  ["#78350f", "#ca8a04"],
-];
-
-const BOARD_THEME_PRESETS = {
-  "pyrello-night": {
-    name: "Pyrello Night",
-    background:
-      "linear-gradient(135deg, #09111c 0%, #102236 44%, #13314d 100%)",
-    overlay:
-      "radial-gradient(circle at 16% 18%, rgba(87, 157, 255, 0.28), transparent 34%), radial-gradient(circle at 82% 20%, rgba(14, 165, 233, 0.18), transparent 26%), radial-gradient(circle at 54% 76%, rgba(34, 160, 107, 0.16), transparent 30%)",
-    accent: "#7eb5ff",
-    accentSoft: "rgba(126, 181, 255, 0.18)",
-    column: "rgba(12, 18, 24, 0.82)",
-    card: "rgba(29, 37, 44, 0.94)",
-    surface: "rgba(13, 19, 30, 0.56)",
-    border: "rgba(223, 233, 247, 0.1)",
-    footer: "rgba(17, 23, 31, 0.94)",
-    muted: "#b4c0d5",
-    preview:
-      "linear-gradient(135deg, #09111c 0%, #102236 44%, #13314d 100%)",
-  },
-  "coastal-grid": {
-    name: "Coastal Grid",
-    background:
-      "linear-gradient(135deg, #07161f 0%, #0b3348 45%, #116c83 100%)",
-    overlay:
-      "radial-gradient(circle at 14% 16%, rgba(125, 211, 252, 0.3), transparent 32%), radial-gradient(circle at 82% 18%, rgba(45, 212, 191, 0.2), transparent 28%), radial-gradient(circle at 55% 76%, rgba(244, 114, 182, 0.12), transparent 28%)",
-    accent: "#8be9fd",
-    accentSoft: "rgba(139, 233, 253, 0.18)",
-    column: "rgba(7, 28, 38, 0.84)",
-    card: "rgba(14, 36, 46, 0.94)",
-    surface: "rgba(7, 23, 31, 0.6)",
-    border: "rgba(211, 246, 255, 0.12)",
-    footer: "rgba(8, 22, 29, 0.94)",
-    muted: "#b6d4dc",
-    preview:
-      "linear-gradient(135deg, #07161f 0%, #0b3348 45%, #116c83 100%)",
-  },
-  "emerald-drift": {
-    name: "Emerald Drift",
-    background:
-      "linear-gradient(135deg, #08140e 0%, #103223 44%, #185d44 100%)",
-    overlay:
-      "radial-gradient(circle at 18% 15%, rgba(74, 222, 128, 0.24), transparent 32%), radial-gradient(circle at 80% 18%, rgba(52, 211, 153, 0.18), transparent 28%), radial-gradient(circle at 58% 74%, rgba(251, 191, 36, 0.14), transparent 28%)",
-    accent: "#86efac",
-    accentSoft: "rgba(134, 239, 172, 0.18)",
-    column: "rgba(11, 28, 19, 0.84)",
-    card: "rgba(17, 41, 28, 0.94)",
-    surface: "rgba(10, 24, 18, 0.58)",
-    border: "rgba(220, 252, 231, 0.1)",
-    footer: "rgba(10, 24, 18, 0.94)",
-    muted: "#bfd8c9",
-    preview:
-      "linear-gradient(135deg, #08140e 0%, #103223 44%, #185d44 100%)",
-  },
-  "graphite-bloom": {
-    name: "Graphite Bloom",
-    background:
-      "linear-gradient(135deg, #141116 0%, #23192c 44%, #4b2440 100%)",
-    overlay:
-      "radial-gradient(circle at 16% 18%, rgba(196, 181, 253, 0.26), transparent 32%), radial-gradient(circle at 82% 18%, rgba(244, 114, 182, 0.18), transparent 28%), radial-gradient(circle at 56% 74%, rgba(251, 191, 36, 0.12), transparent 26%)",
-    accent: "#d4b8ff",
-    accentSoft: "rgba(212, 184, 255, 0.18)",
-    column: "rgba(24, 19, 29, 0.84)",
-    card: "rgba(36, 28, 44, 0.94)",
-    surface: "rgba(19, 15, 24, 0.58)",
-    border: "rgba(244, 232, 255, 0.1)",
-    footer: "rgba(21, 16, 26, 0.94)",
-    muted: "#cec2d9",
-    preview:
-      "linear-gradient(135deg, #141116 0%, #23192c 44%, #4b2440 100%)",
-  },
-};
-
 let flashMessage = null;
 let flashTimeoutId = null;
 let flashVersion = 0;
@@ -157,9 +75,12 @@ function formatDate(isoString) {
   });
 }
 
-function boardCoverStyle(boardId) {
-  const [start, end] = boardGradients[boardId % boardGradients.length];
-  return `background: linear-gradient(135deg, ${start}, ${end});`;
+function boardCoverStyle(board) {
+  const backgroundImageUrl = resolveApiAssetUrl(board?.background_image_url);
+  if (backgroundImageUrl) {
+    return `background-image: url('${escapeHtml(backgroundImageUrl)}');background-size: cover;background-position: center;`;
+  }
+  return "background: linear-gradient(135deg, #ffffff 0%, #eef3f8 100%);";
 }
 
 function toFrontendLink(link) {
@@ -168,7 +89,9 @@ function toFrontendLink(link) {
   if (boardMatch) {
     const boardId = boardMatch[1];
     const taskId = boardMatch[2];
-    return taskId ? `#/boards/${boardId}?task=${taskId}` : `#/boards/${boardId}`;
+    return taskId
+      ? `#/boards/${boardId}?task=${taskId}`
+      : `#/boards/${boardId}`;
   }
   if (link.includes("/dashboard")) return "#/dashboard";
   if (link.includes("/notifications")) return "#/notifications";
@@ -204,7 +127,9 @@ function parseHashRoute() {
 
 function dashboardHash(searchQuery = "") {
   const cleaned = String(searchQuery || "").trim();
-  return cleaned ? `#/dashboard?q=${encodeURIComponent(cleaned)}` : "#/dashboard";
+  return cleaned
+    ? `#/dashboard?q=${encodeURIComponent(cleaned)}`
+    : "#/dashboard";
 }
 
 async function api(path, options = {}) {
@@ -252,6 +177,17 @@ function formDataToObject(form) {
   return output;
 }
 
+function formDataWithSubmitter(form, submitter) {
+  if (submitter) {
+    try {
+      return new FormData(form, submitter);
+    } catch (error) {
+      return new FormData(form);
+    }
+  }
+  return new FormData(form);
+}
+
 function renderFlashToast() {
   const flash = flashMessage;
   if (!flash) return "";
@@ -264,8 +200,10 @@ function renderFlashToast() {
   const css = cssByType[flash.type] || cssByType.info;
   const styleByType = {
     error: "border-color:#ae2e24;background:rgba(66,34,31,0.96);color:#ffbdad;",
-    success: "border-color:#216e4e;background:rgba(31,51,42,0.96);color:#a6f4c5;",
-    warning: "border-color:#a77d00;background:rgba(63,47,0,0.96);color:#f8e6a0;",
+    success:
+      "border-color:#216e4e;background:rgba(31,51,42,0.96);color:#a6f4c5;",
+    warning:
+      "border-color:#a77d00;background:rgba(63,47,0,0.96);color:#f8e6a0;",
     info: "border-color:#3e4852;background:rgba(34,39,43,0.96);color:#b6c2cf;",
   };
   const style = styleByType[flash.type] || styleByType.info;
@@ -281,7 +219,7 @@ function renderFlashToast() {
 function renderAuthLayout(title, formHtml, alternateHtml) {
   return `
     ${renderFlashToast()}
-    <header class="border-b border-[#3e4852] bg-[#1D2125]">
+    <header class="border-b border-[#2f2f2f] bg-[#171717]">
       <div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         <a href="#/login" class="text-xl font-bold text-[#DEE4EA]">Pyrello</a>
         <nav class="flex items-center gap-2 text-sm">
@@ -314,7 +252,7 @@ function renderProtectedShell({
       ? summary.friend_requests
           .map(
             (req) => `
-            <div class="rounded-md border border-[#3e4852] bg-[#22272B] p-2">
+            <div class="rounded-md border border-white/10 bg-white/5 p-2 backdrop-blur-sm">
               <p class="text-sm text-[#DEE4EA]">@${escapeHtml(req.sender.username)}</p>
               <div class="mt-2 flex gap-2">
                 <form data-action="friend-accept" data-request-id="${req.id}">
@@ -325,17 +263,17 @@ function renderProtectedShell({
                 </form>
               </div>
             </div>
-          `
+          `,
           )
           .join("")
-      : `<p class="rounded-md border border-[#3e4852] bg-[#22272B] px-3 py-2 text-sm text-[#9FADBC]">No pending friend requests.</p>`;
+      : `<p class="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#9FADBC] backdrop-blur-sm">No pending friend requests.</p>`;
 
   const inviteHtml =
     summary.board_invites.length > 0
       ? summary.board_invites
           .map(
             (invite) => `
-            <div class="rounded-md border border-[#3e4852] bg-[#22272B] p-2">
+            <div class="rounded-md border border-white/10 bg-white/5 p-2 backdrop-blur-sm">
               <p class="text-sm text-[#DEE4EA]">@${escapeHtml(invite.inviter.username)} invited you to ${escapeHtml(invite.board.title)}</p>
               <div class="mt-2 flex gap-2">
                 <form data-action="board-invite-accept" data-invite-id="${invite.id}">
@@ -346,17 +284,17 @@ function renderProtectedShell({
                 </form>
               </div>
             </div>
-          `
+          `,
           )
           .join("")
-      : `<p class="rounded-md border border-[#3e4852] bg-[#22272B] px-3 py-2 text-sm text-[#9FADBC]">No pending project invites.</p>`;
+      : `<p class="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#9FADBC] backdrop-blur-sm">No pending project invites.</p>`;
 
   const recentNotificationsHtml =
     summary.recent_notifications.length > 0
       ? summary.recent_notifications
           .map(
             (note) => `
-            <article class="rounded-md border p-2 ${note.is_read ? "border-[#3e4852] bg-[#22272B]" : "border-[#579DFF]/40 bg-[#1E3A5F]/45"}">
+            <article class="rounded-md border p-2 ${note.is_read ? "border-white/10 bg-white/5 backdrop-blur-sm" : "border-[#579DFF]/40 bg-[#1E3A5F]/45"}">
               <p class="text-sm ${note.is_read ? "text-[#9FADBC]" : "text-[#DEE4EA]"}">${escapeHtml(note.message)}</p>
               <div class="mt-2 flex items-center justify-between text-xs text-[#7e8b9d]">
                 <span>${formatDate(note.created_at)}</span>
@@ -372,12 +310,13 @@ function renderProtectedShell({
                 </div>
               </div>
             </article>
-          `
+          `,
           )
           .join("")
-      : `<p class="rounded-md border border-[#3e4852] bg-[#22272B] p-3 text-sm text-[#9FADBC]">No notifications yet.</p>`;
+      : `<p class="rounded-md border border-white/10 bg-white/5 p-3 text-sm text-[#9FADBC] backdrop-blur-sm">No notifications yet.</p>`;
 
-  const socialCount = summary.friend_requests.length + summary.board_invites.length;
+  const socialCount =
+    summary.friend_requests.length + summary.board_invites.length;
 
   const resolvedMainClass =
     mainClass ||
@@ -385,7 +324,7 @@ function renderProtectedShell({
 
   return `
     ${renderFlashToast()}
-    <header class="fixed inset-x-0 top-0 z-40 border-b border-[#3e4852] bg-[#1D2125]">
+    <header class="fixed inset-x-0 top-0 z-40 border-b border-[#2f2f2f] bg-[#171717]">
       <div class="relative flex h-14 items-center px-3">
         <a href="#/dashboard" class="group flex items-center gap-2 rounded px-2 py-1.5 text-[#DEE4EA] hover:bg-[#282e33]">
           <svg viewBox="0 0 24 24" class="h-5 w-5 text-[#579DFF]" fill="currentColor" aria-hidden="true">
@@ -407,7 +346,7 @@ function renderProtectedShell({
                 name="q"
                 value="${escapeHtml(searchValue)}"
                 placeholder="Search your workspace"
-                class="h-9 w-full rounded-md border border-[#3e4852] bg-[#22272B] pl-9 pr-3 text-sm text-[#DEE4EA] outline-none transition placeholder:text-[#7e8b9d] focus:border-[#579DFF]"
+                class="h-9 w-full rounded-md border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-[#DEE4EA] outline-none transition placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-md"
               >
             </label>
           </form>
@@ -416,15 +355,12 @@ function renderProtectedShell({
             <summary class="list-none rounded-md bg-[#579DFF] px-3 py-1.5 text-sm font-semibold text-[#091e42] hover:bg-[#85B8FF]">
               Create
             </summary>
-            <div class="dropdown-panel absolute left-0 top-[calc(100%+8px)] w-[360px] rounded-lg border border-[#3e4852] bg-[#282e33] p-4 shadow-2xl">
+            <div class="dropdown-panel absolute left-0 top-[calc(100%+8px)] w-[360px] rounded-xl border border-white/[0.12] p-4 shadow-2xl" style="background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%); backdrop-filter: blur(24px) saturate(180%);">
               <h3 class="text-center text-sm font-semibold text-[#DEE4EA]">Create workspace</h3>
-              <p class="mt-3 text-sm font-semibold text-[#DEE4EA]">Create board</p>
-              <p class="mt-1 text-sm text-[#9fadbc]">A board is made up of cards ordered on lists.</p>
               <form data-action="create-board" class="mt-4 space-y-3">
-                <input name="title" required maxlength="120" placeholder="Board title" class="w-full rounded-md border border-[#3e4852] bg-[#22272B] px-3 py-2 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-[#579DFF]">
-                <textarea name="description" rows="2" placeholder="Board description" class="w-full rounded-md border border-[#3e4852] bg-[#22272B] px-3 py-2 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-[#579DFF]"></textarea>
+                <input name="title" required maxlength="120" placeholder="Board title" class="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-sm">
                 <label class="flex items-center gap-2 text-xs text-[#9fadbc]">
-                  <input type="checkbox" name="allow_public_join" class="h-4 w-4 rounded border-[#3e4852] bg-[#22272B] text-[#579DFF] focus:ring-[#579DFF]">
+                  <input type="checkbox" name="allow_public_join" class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#579DFF] focus:ring-[#579DFF]">
                   Let everyone join this workspace
                 </label>
                 <button class="w-full rounded-md bg-[#579DFF] px-3 py-2 text-sm font-semibold text-[#091e42] hover:bg-[#85B8FF]">Create board</button>
@@ -448,10 +384,10 @@ function renderProtectedShell({
                   : ""
               }
             </summary>
-            <div class="dropdown-panel absolute right-0 top-[calc(100%+8px)] w-[380px] rounded-lg border border-[#3e4852] bg-[#282e33] p-4 shadow-2xl">
+            <div class="dropdown-panel absolute right-0 top-[calc(100%+8px)] w-[380px] rounded-xl border border-white/[0.12] p-4 shadow-2xl" style="background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%); backdrop-filter: blur(24px) saturate(180%);">
               <p class="text-xs font-semibold uppercase tracking-wide text-[#9FADBC]">Add friend</p>
               <form data-action="send-friend-request" class="mt-2 flex gap-2">
-                <input name="username" required placeholder="username" class="w-full rounded-md border border-[#3e4852] bg-[#22272B] px-3 py-2 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-[#579DFF]">
+                <input name="username" required placeholder="username" class="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-sm">
                 <button class="rounded-md bg-[#579DFF] px-3 py-2 text-sm font-semibold text-[#091e42] hover:bg-[#85B8FF]">Send</button>
               </form>
 
@@ -479,7 +415,7 @@ function renderProtectedShell({
                   : ""
               }
             </summary>
-            <div class="dropdown-panel absolute right-0 top-[calc(100%+8px)] w-[380px] rounded-lg border border-[#3e4852] bg-[#282e33] p-4 shadow-2xl">
+            <div class="dropdown-panel absolute right-0 top-[calc(100%+8px)] w-[380px] rounded-xl border border-white/[0.12] p-4 shadow-2xl" style="background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%); backdrop-filter: blur(24px) saturate(180%);">
               <div class="flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-[#DEE4EA]">Notifications</h3>
                 <a href="#/notifications" class="text-xs text-[#85B8FF] hover:text-[#cce0ff]">See all</a>
@@ -494,7 +430,7 @@ function renderProtectedShell({
                 ${escapeHtml(user.avatar_initial)}
               </span>
             </summary>
-            <div class="dropdown-panel absolute right-0 top-[calc(100%+8px)] w-80 rounded-lg border border-[#3e4852] bg-[#282e33] p-4 shadow-2xl">
+            <div class="dropdown-panel absolute right-0 top-[calc(100%+8px)] w-80 rounded-xl border border-white/[0.12] p-4 shadow-2xl" style="background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%); backdrop-filter: blur(24px) saturate(180%);">
               <p class="text-xs font-semibold uppercase tracking-wide text-[#9FADBC]">Account</p>
               <div class="mt-3 flex items-center gap-3">
                 <span class="flex h-10 w-10 items-center justify-center rounded-full text-base font-bold text-white" style="background-color: ${escapeHtml(user.avatar_color)};">
@@ -505,11 +441,11 @@ function renderProtectedShell({
                   <p class="text-sm text-[#9FADBC]">@${escapeHtml(user.username)}</p>
                 </div>
               </div>
-              <div class="mt-4 space-y-1 border-t border-[#3e4852] pt-3 text-sm">
-                <a href="#/dashboard" class="block rounded px-2 py-1.5 text-[#DEE4EA] hover:bg-[#38414a]">Boards</a>
-                <a href="#/notifications" class="block rounded px-2 py-1.5 text-[#DEE4EA] hover:bg-[#38414a]">Activity</a>
+              <div class="mt-4 space-y-1 border-t border-white/10 pt-3 text-sm">
+                <a href="#/dashboard" class="block rounded px-2 py-1.5 text-[#DEE4EA] hover:bg-white/10">Boards</a>
+                <a href="#/notifications" class="block rounded px-2 py-1.5 text-[#DEE4EA] hover:bg-white/10">Activity</a>
                 <form data-action="logout">
-                  <button class="block w-full rounded px-2 py-1.5 text-left text-[#ff9c8f] hover:bg-[#4a2828]">Log out</button>
+                  <button class="block w-full rounded px-2 py-1.5 text-left text-[#ff9c8f] hover:bg-white/10">Log out</button>
                 </form>
               </div>
             </div>
@@ -522,16 +458,16 @@ function renderProtectedShell({
       hideSidebar
         ? ""
         : `
-          <aside class="fixed bottom-0 left-0 top-14 hidden w-64 border-r border-[#3e4852] bg-[#1D2125] px-3 py-4 md:block">
+          <aside class="fixed bottom-0 left-0 top-14 hidden w-64 border-r border-[#2f2f2f] bg-[#171717] px-3 py-4 md:block">
             <nav class="space-y-1 text-sm">
-              <a href="#/dashboard" class="flex items-center gap-2 rounded-md px-3 py-2 ${currentRoute === "dashboard" ? "bg-[#1E3A5F] text-[#85B8FF]" : "text-[#B6C2CF] hover:bg-[#282e33]"}">
+              <a href="#/dashboard" class="flex items-center gap-2 rounded-md px-3 py-2 ${currentRoute === "dashboard" ? "bg-[#2a2a2a] text-[#ffffff]" : "text-[#B6C2CF] hover:bg-[#252525]"}">
                 <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="3" y="5" width="18" height="14" rx="2"></rect>
                   <line x1="9" y1="5" x2="9" y2="19"></line>
                 </svg>
                 Boards
               </a>
-              <a href="#" class="flex items-center gap-2 rounded-md px-3 py-2 text-[#B6C2CF] hover:bg-[#282e33]">
+              <a href="#" class="flex items-center gap-2 rounded-md px-3 py-2 text-[#B6C2CF] hover:bg-[#252525]">
                 <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M4 6h16"></path>
                   <path d="M4 12h10"></path>
@@ -587,7 +523,11 @@ function renderRegisterPage() {
     </form>
   `;
   const alternateHtml = `Already have account? <a href="#/login" class="text-[#85B8FF] hover:text-[#cce0ff]">Login</a>`;
-  appRoot.innerHTML = renderAuthLayout("Create account", formHtml, alternateHtml);
+  appRoot.innerHTML = renderAuthLayout(
+    "Create account",
+    formHtml,
+    alternateHtml,
+  );
 }
 
 function renderDashboardContent(data, searchValue) {
@@ -602,19 +542,19 @@ function renderDashboardContent(data, searchValue) {
           .map(
             (membership) => `
             <a href="#/boards/${membership.board.id}" class="trello-board-card">
-              <div class="h-24 w-full" style="${boardCoverStyle(membership.board.id)}"></div>
+              <div class="h-24 w-full" style="${boardCoverStyle(membership.board)}"></div>
               <div class="space-y-1 p-3">
                 <div class="flex items-center justify-between gap-2">
                   <p class="line-clamp-1 font-semibold text-[#DEE4EA]">${escapeHtml(membership.board.title)}</p>
-                  <span class="rounded-full bg-[#3e4852] px-2 py-0.5 text-[11px] font-semibold uppercase text-[#9FADBC]">${escapeHtml(membership.role)}</span>
+                  <span class="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold uppercase text-[#9FADBC]">${escapeHtml(membership.role)}</span>
                 </div>
                 <p class="line-clamp-2 text-sm text-[#9FADBC]">${escapeHtml(membership.board.description || "No description")}</p>
               </div>
             </a>
-          `
+          `,
           )
           .join("")
-      : `<p class="rounded-md border border-[#3e4852] bg-[#22272B] px-3 py-3 text-sm text-[#9FADBC] sm:col-span-2 lg:col-span-3">No boards yet. Use the Create button in the header.</p>`;
+      : `<p class="rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-[#9FADBC] backdrop-blur-sm sm:col-span-2 lg:col-span-3">No boards yet. Use the Create button in the header.</p>`;
 
   const boardsHtml =
     memberships.length > 0
@@ -622,24 +562,24 @@ function renderDashboardContent(data, searchValue) {
           .map(
             (membership) => `
             <a href="#/boards/${membership.board.id}" class="trello-board-card">
-              <div class="h-24 w-full" style="${boardCoverStyle(membership.board.id)}"></div>
+              <div class="h-24 w-full" style="${boardCoverStyle(membership.board)}"></div>
               <div class="space-y-1 p-3">
                 <p class="line-clamp-1 font-semibold text-[#DEE4EA]">${escapeHtml(membership.board.title)}</p>
                 <p class="line-clamp-2 text-sm text-[#9FADBC]">${escapeHtml(membership.board.description || "No description")}</p>
                 <p class="pt-2 text-xs text-[#7e8b9d]">${membership.board.allow_public_join ? "Public join on" : "Private board"}</p>
               </div>
             </a>
-          `
+          `,
           )
           .join("")
-      : `<p class="rounded-md border border-[#3e4852] bg-[#22272B] px-3 py-3 text-sm text-[#9FADBC] sm:col-span-2 lg:col-span-3">You are not a member of any board yet.</p>`;
+      : `<p class="rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-[#9FADBC] backdrop-blur-sm sm:col-span-2 lg:col-span-3">You are not a member of any board yet.</p>`;
 
   const pendingInvitesHtml =
     pendingBoardInvites.length > 0
       ? pendingBoardInvites
           .map(
             (invite) => `
-            <div class="rounded-md border border-[#3e4852] bg-[#1D2125] p-3">
+            <div class="rounded-md border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
               <p class="text-sm text-[#DEE4EA]">@${escapeHtml(invite.inviter.username)} invited you to <span class="font-semibold">${escapeHtml(invite.board.title)}</span></p>
               <div class="mt-3 flex gap-2">
                 <form data-action="board-invite-accept" data-invite-id="${invite.id}">
@@ -650,49 +590,33 @@ function renderDashboardContent(data, searchValue) {
                 </form>
               </div>
             </div>
-          `
+          `,
           )
           .join("")
-      : `<p class="rounded-md border border-[#3e4852] bg-[#1D2125] px-3 py-3 text-sm text-[#9FADBC]">No pending board invitations.</p>`;
+      : `<p class="rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-[#9FADBC] backdrop-blur-sm">No pending board invitations.</p>`;
 
   const openBoardsHtml =
     openBoards.length > 0
       ? openBoards
           .map(
             (board) => `
-            <div class="rounded-md border border-[#3e4852] bg-[#1D2125] p-3">
+            <div class="rounded-md border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
               <p class="font-semibold text-[#DEE4EA]">${escapeHtml(board.title)}</p>
               <p class="mt-1 text-sm text-[#9FADBC]">Owner: @${escapeHtml(board.owner_username)}</p>
               <form data-action="join-board" data-board-id="${board.id}" class="mt-3">
                 <button class="rounded bg-[#579DFF] px-3 py-1.5 text-xs font-semibold text-[#091e42] hover:bg-[#85B8FF]">Join project</button>
               </form>
             </div>
-          `
+          `,
           )
           .join("")
-      : `<p class="rounded-md border border-[#3e4852] bg-[#1D2125] px-3 py-3 text-sm text-[#9FADBC]">No open workspaces found.</p>`;
+      : `<p class="rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-[#9FADBC] backdrop-blur-sm">No open workspaces found.</p>`;
 
   return `
     <div class="mx-auto max-w-6xl">
       <form data-action="search" class="mb-4 md:hidden">
-        <input name="q" value="${escapeHtml(searchValue)}" placeholder="Search your workspace" class="h-9 w-full rounded-md border border-[#3e4852] bg-[#22272B] px-3 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-[#579DFF]">
+        <input name="q" value="${escapeHtml(searchValue)}" placeholder="Search your workspace" class="h-9 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-md">
       </form>
-
-      <section class="rounded-xl border border-[#3e4852] bg-[#22272B] p-5">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h2 class="text-3xl font-extrabold tracking-tight text-[#DEE4EA]">Most popular templates</h2>
-            <p class="mt-1 text-[#9FADBC]">Get going faster with a template from the Trello community.</p>
-          </div>
-          <a href="#" class="text-[#9FADBC] hover:text-[#DEE4EA]">✕</a>
-        </div>
-        <div class="mt-4 flex flex-wrap items-center gap-3">
-          <select class="min-w-52 rounded-md border border-[#3e4852] bg-[#1D2125] px-3 py-2 text-sm text-[#DEE4EA] outline-none focus:border-[#579DFF]">
-            <option>Choose a category</option>
-          </select>
-          <a href="#" class="text-sm font-medium text-[#85B8FF] hover:text-[#cce0ff]">Browse the full template gallery</a>
-        </div>
-      </section>
 
       ${
         searchValue
@@ -711,12 +635,12 @@ function renderDashboardContent(data, searchValue) {
       </section>
 
       <section class="mt-8 grid gap-6 lg:grid-cols-2">
-        <article class="rounded-xl border border-[#3e4852] bg-[#22272B] p-4">
+        <article class="rounded-xl border border-white/[0.12] p-4" style="background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%); backdrop-filter: blur(20px) saturate(180%);">
           <h3 class="text-lg font-semibold text-[#DEE4EA]">Board Invitations</h3>
           <div class="mt-3 space-y-2">${pendingInvitesHtml}</div>
         </article>
 
-        <article class="rounded-xl border border-[#3e4852] bg-[#22272B] p-4">
+        <article class="rounded-xl border border-white/[0.12] p-4" style="background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%); backdrop-filter: blur(20px) saturate(180%);">
           <h3 class="text-lg font-semibold text-[#DEE4EA]">Open Workspaces</h3>
           <p class="mt-1 text-sm text-[#9FADBC]">Boards where everyone can join.</p>
           <div class="mt-3 space-y-2">${openBoardsHtml}</div>
@@ -750,7 +674,7 @@ function renderNotificationsContent(notifications) {
                 </div>
               </div>
             </article>
-          `
+          `,
           )
           .join("")
       : `<p class="rounded-md border border-[#3e4852] bg-[#1D2125] p-3 text-sm text-[#9FADBC]">No notifications.</p>`;
@@ -791,23 +715,16 @@ function rememberBoardData(boardId, boardData) {
   boardUiState.boardData = boardData;
 }
 
-function getBoardTheme(themeKey) {
-  return BOARD_THEME_PRESETS[themeKey] || BOARD_THEME_PRESETS["pyrello-night"];
+function boardBackgroundStatus(board) {
+  return board?.background_image_url
+    ? "Custom background image"
+    : "Default white background";
 }
 
-function boardThemeStyle(themeKey) {
-  const theme = getBoardTheme(themeKey);
+function boardShellStyle(board) {
+  const backgroundImageUrl = resolveApiAssetUrl(board?.background_image_url);
   return [
-    `--board-background:${theme.background}`,
-    `--board-overlay:${theme.overlay}`,
-    `--board-accent:${theme.accent}`,
-    `--board-accent-soft:${theme.accentSoft}`,
-    `--board-column:${theme.column}`,
-    `--board-card:${theme.card}`,
-    `--board-surface:${theme.surface}`,
-    `--board-border:${theme.border}`,
-    `--board-footer:${theme.footer}`,
-    `--board-muted:${theme.muted}`,
+    `--board-background-image:${backgroundImageUrl ? `url('${escapeHtml(backgroundImageUrl)}')` : "none"}`,
   ].join(";");
 }
 
@@ -831,20 +748,17 @@ function boardIcon(name) {
   const icons = {
     share:
       '<svg class="board-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>',
-    dots:
-      '<svg class="board-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>',
+    dots: '<svg class="board-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg>',
     comments:
       '<svg class="board-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
     board:
       '<svg class="board-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"></rect><line x1="9" y1="5" x2="9" y2="19"></line></svg>',
     switch:
       '<svg class="board-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h13"></path><path d="M3 12h18"></path><path d="M3 17h10"></path></svg>',
-    plus:
-      '<svg class="board-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
+    plus: '<svg class="board-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
     close:
       '<svg class="board-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
-    grip:
-      '<svg class="board-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="6.5" cy="12" r="1.7"></circle><circle cx="12" cy="12" r="1.7"></circle><circle cx="17.5" cy="12" r="1.7"></circle></svg>',
+    grip: '<svg class="board-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="6.5" cy="12" r="1.7"></circle><circle cx="12" cy="12" r="1.7"></circle><circle cx="17.5" cy="12" r="1.7"></circle></svg>',
   };
   return icons[name] || "";
 }
@@ -852,7 +766,10 @@ function boardIcon(name) {
 function renderBoardAvatar(user, className = "board-avatar", extraLabel = "") {
   const label = extraLabel || user?.username || "";
   const initial =
-    user?.avatar_initial || String(user?.username || "?").slice(0, 1).toUpperCase();
+    user?.avatar_initial ||
+    String(user?.username || "?")
+      .slice(0, 1)
+      .toUpperCase();
   const color = user?.avatar_color || "#44546f";
   return `
     <span
@@ -875,8 +792,8 @@ function renderBoardMembersStack(members) {
           renderBoardAvatar(
             member.user,
             "board-avatar-stack__item",
-            `${member.user.username} (${member.role})`
-          )
+            `${member.user.username} (${member.role})`,
+          ),
         )
         .join("")}
       ${
@@ -985,12 +902,12 @@ function renderBoardSharePopover(boardData, boardId) {
                             <div class="board-share-row__meta">
                               <p class="board-share-row__name">@${escapeHtml(invite.invitee.username)}</p>
                               <p class="board-share-row__status board-share-row__status--pending">Invited ${escapeHtml(
-                                formatBoardTimestamp(invite.created_at)
+                                formatBoardTimestamp(invite.created_at),
                               )}</p>
                             </div>
                           </div>
                         </div>
-                      `
+                      `,
                     )
                     .join("")}
                 </div>
@@ -1005,8 +922,10 @@ function renderBoardSharePopover(boardData, boardId) {
 
 function renderBoardSettingsPopover(boardData, boardId) {
   const board = boardData.board;
-  const themeOptions = boardData.available_themes || [];
   const canManage = Boolean(boardData.can_manage_board);
+  const backgroundLabel = board.background_image_url
+    ? board.background_image_name || "Custom background image"
+    : "Default white background";
 
   return `
     <details class="board-panel">
@@ -1026,7 +945,7 @@ function renderBoardSettingsPopover(boardData, boardId) {
                 <div>
                   <label class="board-field__label" for="board_description">Description</label>
                   <textarea id="board_description" class="board-textarea" name="description" rows="4">${escapeHtml(
-                    board.description || ""
+                    board.description || "",
                   )}</textarea>
                 </div>
                 <label class="board-checkbox">
@@ -1034,27 +953,46 @@ function renderBoardSettingsPopover(boardData, boardId) {
                   <span>Allow anyone to join this board</span>
                 </label>
                 <div>
-                  <label class="board-field__label">Theme</label>
-                  <div class="board-theme-grid">
-                    ${themeOptions
-                      .map((option) => {
-                        const theme = getBoardTheme(option.key);
-                        return `
-                          <label class="board-theme-option">
-                            <input type="radio" name="theme_key" value="${escapeHtml(option.key)}" ${board.theme_key === option.key ? "checked" : ""}>
-                            <span class="board-theme-option__card">
-                              <span class="board-theme-option__swatch" style="background:${escapeHtml(theme.preview)}"></span>
-                              <span class="board-theme-option__name">${escapeHtml(option.name)}</span>
-                            </span>
-                          </label>
-                        `;
-                      })
-                      .join("")}
+                  <label class="board-field__label" for="board_background_${boardId}">Board background</label>
+                  <div class="board-background-preview" style="${boardCoverStyle(board)}">
+                    <div class="board-background-preview__badge">${escapeHtml(backgroundLabel)}</div>
                   </div>
+                  <input
+                    id="board_background_${boardId}"
+                    class="board-file-input sr-only"
+                    type="file"
+                    name="background_image"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                  >
+                  <label class="board-file-picker" for="board_background_${boardId}">
+                    <span class="board-file-picker__button">Upload image</span>
+                    <span class="board-file-picker__name" data-file-label-for="board_background_${boardId}">${escapeHtml(
+                      board.background_image_url
+                        ? "Choose a new image to replace the current background"
+                        : "Choose an image for this board background",
+                    )}</span>
+                  </label>
+                  <p class="board-panel__helper">Default board background is white. Upload PNG, JPG, WEBP, or GIF to override it.</p>
                 </div>
-                <button class="board-button board-button--primary board-button--block">
-                  Save board settings
-                </button>
+                <div class="board-form-grid">
+                  <button class="board-button board-button--primary board-button--block">
+                    Save board settings
+                  </button>
+                  ${
+                    board.background_image_url
+                      ? `
+                        <button
+                          class="board-button board-button--ghost board-button--block"
+                          type="submit"
+                          name="remove_background_image"
+                          value="true"
+                        >
+                          Reset to white
+                        </button>
+                      `
+                      : ""
+                  }
+                </div>
               </form>
               <form class="board-panel__section" data-action="delete-board" data-board-id="${boardId}">
                 <button class="board-button board-button--danger board-button--block" type="submit">
@@ -1064,13 +1002,13 @@ function renderBoardSettingsPopover(boardData, boardId) {
             `
             : `
               <div class="board-panel__section">
-                <p class="board-panel__helper">Only the board owner can change settings. You can still review the current theme and visibility.</p>
+                <p class="board-panel__helper">Only the board owner can change settings. You can still review the current background and visibility.</p>
                 <div class="board-share-list">
                   <div class="board-share-row">
                     <div class="board-share-row__identity">
                       <div class="board-share-row__meta">
-                        <p class="board-share-row__name">Theme</p>
-                        <p class="board-share-row__status">${escapeHtml(getBoardTheme(board.theme_key).name)}</p>
+                        <p class="board-share-row__name">Background</p>
+                        <p class="board-share-row__status">${escapeHtml(boardBackgroundStatus(board))}</p>
                       </div>
                     </div>
                   </div>
@@ -1310,12 +1248,12 @@ function renderBoardFooter(boardData) {
                         <div class="board-switch-row__meta">
                           <p class="board-switch-row__name">${escapeHtml(membership.board.title)}</p>
                           <p class="board-switch-row__status">${escapeHtml(membership.role)} - ${escapeHtml(
-                            getBoardTheme(membership.board.theme_key).name
+                            boardBackgroundStatus(membership.board),
                           )}</p>
                         </div>
                       </div>
                     </a>
-                  `
+                  `,
                 )
                 .join("")}
             </div>
@@ -1336,16 +1274,15 @@ function renderBoardTaskModal(boardData, boardId) {
   const attachments = selectedTask.attachments || [];
   const attachmentsHtml = attachments.length
     ? attachments
-        .map(
-          (attachment) => {
-            const attachmentUrl = resolveApiAssetUrl(attachment.url);
-            return `
+        .map((attachment) => {
+          const attachmentUrl = resolveApiAssetUrl(attachment.url);
+          return `
             <article class="board-attachment">
               <a class="board-attachment__media" href="${escapeHtml(
-                attachmentUrl
+                attachmentUrl,
               )}" target="_blank" rel="noreferrer">
                 <img class="board-attachment__image" src="${escapeHtml(attachmentUrl)}" alt="${escapeHtml(
-                  attachment.original_name
+                  attachment.original_name,
                 )}">
               </a>
               <div class="board-attachment__meta">
@@ -1359,8 +1296,7 @@ function renderBoardTaskModal(boardData, boardId) {
               </div>
             </article>
           `;
-          }
-        )
+        })
         .join("")
     : '<div class="board-empty">No images yet.</div>';
 
@@ -1371,7 +1307,9 @@ function renderBoardTaskModal(boardData, boardId) {
           <div>
             <h2 class="board-modal__title">${escapeHtml(selectedTask.title)}</h2>
             <p class="board-modal__subtitle">Created by @${escapeHtml(selectedTask.creator.username)}${
-              selectedTask.list_title ? ` in ${escapeHtml(selectedTask.list_title)}` : ""
+              selectedTask.list_title
+                ? ` in ${escapeHtml(selectedTask.list_title)}`
+                : ""
             }</p>
           </div>
           <button class="board-button board-button--ghost" type="button" data-board-action="close-modal" data-board-id="${boardId}">
@@ -1390,7 +1328,7 @@ function renderBoardTaskModal(boardData, boardId) {
               <div>
                 <label class="board-field__label" for="task_description_${selectedTask.id}">Description</label>
                 <textarea id="task_description_${selectedTask.id}" class="board-textarea" name="description" rows="7">${escapeHtml(
-                  selectedTask.description || ""
+                  selectedTask.description || "",
                 )}</textarea>
               </div>
               <div class="board-form-grid" style="grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))">
@@ -1403,7 +1341,7 @@ function renderBoardTaskModal(boardData, boardId) {
                           <option value="${list.id}" ${list.id === selectedTask.list_id ? "selected" : ""}>
                             ${escapeHtml(list.title)}
                           </option>
-                        `
+                        `,
                       )
                       .join("")}
                   </select>
@@ -1416,11 +1354,14 @@ function renderBoardTaskModal(boardData, boardId) {
                       .map(
                         (member) => `
                           <option value="${member.user.id}" ${
-                            selectedTask.assignee && selectedTask.assignee.id === member.user.id ? "selected" : ""
+                            selectedTask.assignee &&
+                            selectedTask.assignee.id === member.user.id
+                              ? "selected"
+                              : ""
                           }>
                             @${escapeHtml(member.user.username)}
                           </option>
-                        `
+                        `,
                       )
                       .join("")}
                   </select>
@@ -1477,13 +1418,13 @@ function renderBoardTaskModal(boardData, boardId) {
                                 <div>
                                   <div class="board-comment__name">@${escapeHtml(comment.user.username)}</div>
                                   <div class="board-comment__timestamp">${escapeHtml(
-                                    formatBoardTimestamp(comment.created_at)
+                                    formatBoardTimestamp(comment.created_at),
                                   )}</div>
                                 </div>
                               </div>
                               <p class="board-comment__content">${escapeHtml(comment.content)}</p>
                             </article>
-                          `
+                          `,
                         )
                         .join("")
                     : '<div class="board-empty">No comments yet.</div>'
@@ -1513,30 +1454,38 @@ function attachBoardLaneScrollListener() {
     () => {
       boardUiState.laneScrollLeft = lanes.scrollLeft;
     },
-    { passive: true }
+    { passive: true },
   );
   lanes.addEventListener(
     "wheel",
     (event) => {
       if (event.ctrlKey || event.metaKey) return;
       const cardsScroller =
-        event.target instanceof Element ? event.target.closest(".board-lane__cards") : null;
+        event.target instanceof Element
+          ? event.target.closest(".board-lane__cards")
+          : null;
       if (cardsScroller && Math.abs(event.deltaY) >= Math.abs(event.deltaX)) {
         const canScrollUp = cardsScroller.scrollTop > 0;
         const canScrollDown =
-          cardsScroller.scrollTop + cardsScroller.clientHeight < cardsScroller.scrollHeight - 1;
-        if ((event.deltaY < 0 && canScrollUp) || (event.deltaY > 0 && canScrollDown)) {
+          cardsScroller.scrollTop + cardsScroller.clientHeight <
+          cardsScroller.scrollHeight - 1;
+        if (
+          (event.deltaY < 0 && canScrollUp) ||
+          (event.deltaY > 0 && canScrollDown)
+        ) {
           return;
         }
       }
       const horizontalDelta =
-        Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+        Math.abs(event.deltaX) > Math.abs(event.deltaY)
+          ? event.deltaX
+          : event.deltaY;
       if (!horizontalDelta) return;
       lanes.scrollLeft += horizontalDelta;
       boardUiState.laneScrollLeft = lanes.scrollLeft;
       event.preventDefault();
     },
-    { passive: false }
+    { passive: false },
   );
   lanes.addEventListener("mousedown", (event) => {
     if (event.button !== 0) return;
@@ -1600,7 +1549,7 @@ async function refreshBoardData() {
   const taskId = route.query.get("task");
   try {
     const boardData = await api(
-      `/boards/${route.boardId}${taskId ? `?task_id=${encodeURIComponent(taskId)}` : ""}`
+      `/boards/${route.boardId}${taskId ? `?task_id=${encodeURIComponent(taskId)}` : ""}`,
     );
     rememberBoardData(route.boardId, boardData);
     renderBoardPageFromState();
@@ -1616,11 +1565,12 @@ async function refreshBoardData() {
 }
 
 function shouldBlockBoardLanePan(target) {
-  return !(
-    target instanceof Element
-  ) || Boolean(
-    target.closest(
-      "[data-card], button, input, textarea, select, option, a, summary, details, form, label, [data-board-action]"
+  return (
+    !(target instanceof Element) ||
+    Boolean(
+      target.closest(
+        "[data-card], button, input, textarea, select, option, a, summary, details, form, label, [data-board-action]",
+      ),
     )
   );
 }
@@ -1778,9 +1728,9 @@ function buildBoardLaneDragPreview(lane) {
 }
 
 function getBoardLaneDropPosition(clientX) {
-  const lanes = [
-    ...appRoot.querySelectorAll("[data-board-lane]"),
-  ].filter((lane) => Number(lane.dataset.boardLane) !== boardUiState.dragLaneId);
+  const lanes = [...appRoot.querySelectorAll("[data-board-lane]")].filter(
+    (lane) => Number(lane.dataset.boardLane) !== boardUiState.dragLaneId,
+  );
 
   for (const [index, lane] of lanes.entries()) {
     const box = lane.getBoundingClientRect();
@@ -1796,7 +1746,9 @@ function clearBoardLaneDropIndicators() {
   appRoot
     .querySelectorAll(".board-lane--drop-target")
     .forEach((element) => element.classList.remove("board-lane--drop-target"));
-  appRoot.querySelector("[data-board-lanes]")?.classList.remove("board-lanes--drop-tail");
+  appRoot
+    .querySelector("[data-board-lanes]")
+    ?.classList.remove("board-lanes--drop-tail");
 }
 
 function updateBoardLaneDropIndicators(dropData) {
@@ -1807,9 +1759,13 @@ function updateBoardLaneDropIndicators(dropData) {
 
   if (dropData.targetLane) {
     dropData.targetLane.classList.add("board-lane--drop-target");
-    boardUiState.dragLaneTargetListId = Number(dropData.targetLane.dataset.boardLane);
+    boardUiState.dragLaneTargetListId = Number(
+      dropData.targetLane.dataset.boardLane,
+    );
   } else {
-    appRoot.querySelector("[data-board-lanes]")?.classList.add("board-lanes--drop-tail");
+    appRoot
+      .querySelector("[data-board-lanes]")
+      ?.classList.add("board-lanes--drop-tail");
   }
   boardUiState.dragLaneTargetPosition = dropData.position;
 }
@@ -1842,7 +1798,7 @@ function renderBoardContentLegacy(boardData, boardId, taskId) {
       <span class="rounded-full border border-[#3e4852] bg-[#1D2125] px-2.5 py-1 text-xs">
         @${escapeHtml(member.user.username)} (${escapeHtml(member.role)})
       </span>
-    `
+    `,
     )
     .join("");
 
@@ -1854,7 +1810,7 @@ function renderBoardContentLegacy(boardData, boardId, taskId) {
             <p class="rounded border border-[#3e4852] bg-[#1D2125] px-2 py-1 text-xs text-[#DEE4EA]">
               @${escapeHtml(invite.invitee.username)} (${formatDate(invite.created_at)})
             </p>
-          `
+          `,
           )
           .join("")
       : `<p class="rounded border border-[#3e4852] bg-[#1D2125] px-2 py-1 text-xs text-[#9FADBC]">No pending invites.</p>`;
@@ -1871,7 +1827,7 @@ function renderBoardContentLegacy(boardData, boardId, taskId) {
                   <p class="mt-1 text-xs text-[#9FADBC]">${task.assignee ? `Assigned: @${escapeHtml(task.assignee.username)}` : "Unassigned"}</p>
                   <p class="mt-1 text-[11px] text-[#7e8b9d]">${task.comments_count} comments</p>
                 </a>
-              `
+              `,
               )
               .join("")
           : `<p class="rounded border border-[#3e4852] bg-[#22272B] px-3 py-2 text-xs text-[#9FADBC]">No task yet.</p>`;
@@ -1880,7 +1836,7 @@ function renderBoardContentLegacy(boardData, boardId, taskId) {
         .map(
           (member) => `
           <option value="${member.user.id}">@${escapeHtml(member.user.username)}</option>
-        `
+        `,
         )
         .join("");
 
@@ -1914,7 +1870,7 @@ function renderBoardContentLegacy(boardData, boardId, taskId) {
         <option value="${list.id}" ${selectedTask.list_id === list.id ? "selected" : ""}>
           ${escapeHtml(list.title)}
         </option>
-      `
+      `,
       )
       .join("");
     const assigneeOptions = members
@@ -1923,7 +1879,7 @@ function renderBoardContentLegacy(boardData, boardId, taskId) {
         <option value="${member.user.id}" ${selectedTask.assignee && selectedTask.assignee.id === member.user.id ? "selected" : ""}>
           @${escapeHtml(member.user.username)}
         </option>
-      `
+      `,
       )
       .join("");
     const commentsHtml =
@@ -1936,7 +1892,7 @@ function renderBoardContentLegacy(boardData, boardId, taskId) {
                 <p class="mt-1 text-sm text-[#DEE4EA]">${escapeHtml(comment.content)}</p>
                 <p class="mt-1 text-[11px] text-[#7e8b9d]">${formatDate(comment.created_at)}</p>
               </div>
-            `
+            `,
             )
             .join("")
         : `<p class="rounded-lg border border-[#3e4852] bg-[#22272B] p-2 text-xs text-[#9FADBC]">No comments yet.</p>`;
@@ -2073,7 +2029,7 @@ function renderBoardContent(boardData, boardId) {
     .join("");
 
   return `
-    <div class="board-shell" style="${boardThemeStyle(board.theme_key)}">
+    <div class="board-shell" style="${boardShellStyle(board)}">
       <div class="board-shell__inner">
         <section class="board-topbar">
           <div class="board-topbar__primary">
@@ -2142,7 +2098,9 @@ async function renderRoute() {
     if (route.name === "dashboard") {
       resetBoardUiState(null);
       const q = route.query.get("q") || "";
-      const dashboardData = await api(`/dashboard${q ? `?q=${encodeURIComponent(q)}` : ""}`);
+      const dashboardData = await api(
+        `/dashboard${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+      );
       protectedShellCache = { user: summary.user, summary };
       appRoot.innerHTML = renderProtectedShell({
         user: summary.user,
@@ -2160,7 +2118,7 @@ async function renderRoute() {
       let boardData = null;
       try {
         boardData = await api(
-          `/boards/${route.boardId}${taskId ? `?task_id=${encodeURIComponent(taskId)}` : ""}`
+          `/boards/${route.boardId}${taskId ? `?task_id=${encodeURIComponent(taskId)}` : ""}`,
         );
       } catch (error) {
         if (error.status === 403 || error.status === 404) {
@@ -2224,7 +2182,12 @@ async function handleSubmit(event) {
 
   event.preventDefault();
   const action = form.dataset.action;
-  const payload = action === "upload-attachment" ? null : formDataToObject(form);
+  const payload =
+    action === "upload-attachment"
+      ? null
+      : action === "board-settings" || action === "save-board-settings"
+        ? formDataWithSubmitter(form, event.submitter)
+        : formDataToObject(form);
 
   try {
     if (action === "login") {
@@ -2262,37 +2225,50 @@ async function handleSubmit(event) {
       return;
     }
     if (action === "friend-accept") {
-      await api(`/friends/requests/${form.dataset.requestId}/accept`, { method: "POST" });
+      await api(`/friends/requests/${form.dataset.requestId}/accept`, {
+        method: "POST",
+      });
       setFlash("success", "Friend request accepted.");
       await renderRoute();
       return;
     }
     if (action === "friend-decline") {
-      await api(`/friends/requests/${form.dataset.requestId}/decline`, { method: "POST" });
+      await api(`/friends/requests/${form.dataset.requestId}/decline`, {
+        method: "POST",
+      });
       setFlash("info", "Friend request declined.");
       await renderRoute();
       return;
     }
     if (action === "board-invite-accept") {
-      const invite = await api(`/board-invites/${form.dataset.inviteId}/accept`, { method: "POST" });
+      const invite = await api(
+        `/board-invites/${form.dataset.inviteId}/accept`,
+        { method: "POST" },
+      );
       setFlash("success", "Invitation accepted.");
       window.location.hash = `#/boards/${invite.board.id}`;
       return;
     }
     if (action === "board-invite-decline") {
-      await api(`/board-invites/${form.dataset.inviteId}/decline`, { method: "POST" });
+      await api(`/board-invites/${form.dataset.inviteId}/decline`, {
+        method: "POST",
+      });
       setFlash("info", "Invitation declined.");
       await renderRoute();
       return;
     }
     if (action === "join-board") {
-      const board = await api(`/boards/${form.dataset.boardId}/join`, { method: "POST" });
+      const board = await api(`/boards/${form.dataset.boardId}/join`, {
+        method: "POST",
+      });
       setFlash("success", "You joined this board.");
       window.location.hash = `#/boards/${board.id}`;
       return;
     }
     if (action === "mark-read") {
-      await api(`/notifications/${form.dataset.notificationId}/read`, { method: "POST" });
+      await api(`/notifications/${form.dataset.notificationId}/read`, {
+        method: "POST",
+      });
       await renderRoute();
       return;
     }
@@ -2311,43 +2287,58 @@ async function handleSubmit(event) {
       return;
     }
     if (action === "board-settings" || action === "save-board-settings") {
-      await api(`/boards/${form.dataset.boardId}`, { method: "PATCH", body: payload });
+      await api(`/boards/${form.dataset.boardId}`, {
+        method: "PATCH",
+        body: payload,
+      });
       setFlash("success", "Board settings updated.");
       await refreshBoardData();
       return;
     }
     if (action === "add-list" || action === "create-list") {
-      await api(`/boards/${form.dataset.boardId}/lists`, { method: "POST", body: payload });
+      await api(`/boards/${form.dataset.boardId}/lists`, {
+        method: "POST",
+        body: payload,
+      });
       setFlash("success", "List created.");
       boardUiState.addListOpen = false;
       await refreshBoardData();
       return;
     }
     if (action === "rename-list") {
-      await api(`/boards/${form.dataset.boardId}/lists/${form.dataset.listId}`, {
-        method: "PATCH",
-        body: payload,
-      });
+      await api(
+        `/boards/${form.dataset.boardId}/lists/${form.dataset.listId}`,
+        {
+          method: "PATCH",
+          body: payload,
+        },
+      );
       setFlash("success", "List renamed.");
       boardUiState.editingListId = null;
       await refreshBoardData();
       return;
     }
     if (action === "create-task" || action === "create-card") {
-      await api(`/boards/${form.dataset.boardId}/lists/${form.dataset.listId}/tasks`, {
-        method: "POST",
-        body: payload,
-      });
+      await api(
+        `/boards/${form.dataset.boardId}/lists/${form.dataset.listId}/tasks`,
+        {
+          method: "POST",
+          body: payload,
+        },
+      );
       setFlash("success", "Task created.");
       boardUiState.activeComposerListId = null;
       await refreshBoardData();
       return;
     }
     if (action === "update-task" || action === "save-task") {
-      const task = await api(`/boards/${form.dataset.boardId}/tasks/${form.dataset.taskId}`, {
-        method: "PATCH",
-        body: payload,
-      });
+      const task = await api(
+        `/boards/${form.dataset.boardId}/tasks/${form.dataset.taskId}`,
+        {
+          method: "PATCH",
+          body: payload,
+        },
+      );
       setFlash("success", "Task updated.");
       if (parseHashRoute().name === "board") {
         await refreshBoardData();
@@ -2358,10 +2349,13 @@ async function handleSubmit(event) {
     }
     if (action === "upload-attachment") {
       const uploadPayload = new FormData(form);
-      await api(`/boards/${form.dataset.boardId}/tasks/${form.dataset.taskId}/attachments`, {
-        method: "POST",
-        body: uploadPayload,
-      });
+      await api(
+        `/boards/${form.dataset.boardId}/tasks/${form.dataset.taskId}/attachments`,
+        {
+          method: "POST",
+          body: uploadPayload,
+        },
+      );
       setFlash("success", "Image uploaded.");
       form.reset();
       await refreshBoardData();
@@ -2370,17 +2364,20 @@ async function handleSubmit(event) {
     if (action === "delete-attachment") {
       await api(
         `/boards/${form.dataset.boardId}/tasks/${form.dataset.taskId}/attachments/${form.dataset.attachmentId}`,
-        { method: "DELETE" }
+        { method: "DELETE" },
       );
       setFlash("success", "Image removed.");
       await refreshBoardData();
       return;
     }
     if (action === "add-comment") {
-      await api(`/boards/${form.dataset.boardId}/tasks/${form.dataset.taskId}/comments`, {
-        method: "POST",
-        body: payload,
-      });
+      await api(
+        `/boards/${form.dataset.boardId}/tasks/${form.dataset.taskId}/comments`,
+        {
+          method: "POST",
+          body: payload,
+        },
+      );
       setFlash("success", "Comment posted.");
       if (parseHashRoute().name === "board") {
         await refreshBoardData();
@@ -2390,7 +2387,10 @@ async function handleSubmit(event) {
       return;
     }
     if (action === "invite-user-board") {
-      await api(`/boards/${form.dataset.boardId}/invites`, { method: "POST", body: payload });
+      await api(`/boards/${form.dataset.boardId}/invites`, {
+        method: "POST",
+        body: payload,
+      });
       setFlash("success", "Invitation sent.");
       await refreshBoardData();
       return;
@@ -2407,6 +2407,19 @@ window.addEventListener("hashchange", () => {
 });
 
 appRoot.addEventListener("submit", handleSubmit);
+
+appRoot.addEventListener("change", (event) => {
+  const fileInput = event.target.closest(".board-file-input");
+  if (!fileInput) return;
+
+  const label = appRoot.querySelector(
+    `[data-file-label-for="${fileInput.id}"]`,
+  );
+  if (!label) return;
+
+  label.textContent =
+    fileInput.files?.[0]?.name || "Choose an image for this board background";
+});
 
 appRoot.addEventListener("click", (event) => {
   const route = parseHashRoute();
@@ -2425,10 +2438,14 @@ appRoot.addEventListener("click", (event) => {
     boardUiState.editingListId = null;
     boardUiState.activeComposerListId = Number(actionable.dataset.listId);
     renderBoardPageFromState();
-    const field = appRoot.querySelector(`#card_title_${boardUiState.activeComposerListId}`);
+    const field = appRoot.querySelector(
+      `#card_title_${boardUiState.activeComposerListId}`,
+    );
     if (field) {
       field.focus();
-      field.closest(".board-card--composer")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      field
+        .closest(".board-card--composer")
+        ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
     return;
   }
@@ -2443,7 +2460,9 @@ appRoot.addEventListener("click", (event) => {
     boardUiState.activeComposerListId = null;
     boardUiState.editingListId = Number(actionable.dataset.listId);
     renderBoardPageFromState();
-    const field = appRoot.querySelector(`#list_title_${boardUiState.editingListId}`);
+    const field = appRoot.querySelector(
+      `#list_title_${boardUiState.editingListId}`,
+    );
     if (field) {
       field.focus();
       field.select();
@@ -2473,7 +2492,10 @@ appRoot.addEventListener("click", (event) => {
   }
 
   if (actionable.dataset.boardAction === "open-task") {
-    window.location.hash = boardHash(route.boardId, Number(actionable.dataset.taskId));
+    window.location.hash = boardHash(
+      route.boardId,
+      Number(actionable.dataset.taskId),
+    );
     return;
   }
 
@@ -2498,7 +2520,9 @@ appRoot.addEventListener("change", async (event) => {
     return;
   }
 
-  const actionable = event.target.closest("[data-board-action='toggle-complete']");
+  const actionable = event.target.closest(
+    "[data-board-action='toggle-complete']",
+  );
   if (!actionable) return;
 
   const taskId = Number(actionable.dataset.taskId);
@@ -2507,7 +2531,10 @@ appRoot.addEventListener("change", async (event) => {
       method: "PATCH",
       body: { is_completed: actionable.checked },
     });
-    setFlash("success", actionable.checked ? "Card marked complete." : "Card reopened.");
+    setFlash(
+      "success",
+      actionable.checked ? "Card marked complete." : "Card reopened.",
+    );
     await refreshBoardData();
   } catch (error) {
     actionable.checked = !actionable.checked;
@@ -2551,7 +2578,8 @@ appRoot.addEventListener("dragover", (event) => {
 
   if (boardUiState.dragLaneId) {
     const lanesContainer =
-      event.target.closest("[data-board-lanes]") || appRoot.querySelector("[data-board-lanes]");
+      event.target.closest("[data-board-lanes]") ||
+      appRoot.querySelector("[data-board-lanes]");
     if (!lanesContainer) return;
 
     event.preventDefault();
@@ -2577,7 +2605,8 @@ appRoot.addEventListener("drop", async (event) => {
 
   if (boardUiState.dragLaneId) {
     const lanesContainer =
-      event.target.closest("[data-board-lanes]") || appRoot.querySelector("[data-board-lanes]");
+      event.target.closest("[data-board-lanes]") ||
+      appRoot.querySelector("[data-board-lanes]");
     if (!lanesContainer) return;
 
     event.preventDefault();
@@ -2607,7 +2636,8 @@ appRoot.addEventListener("drop", async (event) => {
   event.preventDefault();
   const movingTaskId = boardUiState.dragTaskId;
   const fallbackDrop = getBoardDropPosition(list, event.clientY);
-  const targetListId = boardUiState.dragTargetListId ?? Number(list.dataset.listId);
+  const targetListId =
+    boardUiState.dragTargetListId ?? Number(list.dataset.listId);
   const position = Number.isInteger(boardUiState.dragTargetPosition)
     ? boardUiState.dragTargetPosition
     : fallbackDrop.position;
