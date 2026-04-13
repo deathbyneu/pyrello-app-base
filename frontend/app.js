@@ -1,4 +1,5 @@
 const API_BASE = window.PYRELLO_API_BASE || "http://127.0.0.1:5000/api";
+const API_ORIGIN = new URL(API_BASE, window.location.href).origin;
 
 const appRoot = document.getElementById("app");
 
@@ -93,14 +94,19 @@ const boardUiState = {
   currentBoardId: null,
   boardData: null,
   activeComposerListId: null,
+  editingListId: null,
   addListOpen: false,
   dragTaskId: null,
   dragPreviewEl: null,
+  dragTargetListId: null,
+  dragTargetPosition: null,
+  dragLaneId: null,
+  dragLanePreviewEl: null,
+  dragLaneTargetListId: null,
+  dragLaneTargetPosition: null,
   laneScrollLeft: 0,
+  lanePanCleanup: null,
 };
-
-const boardDropPlaceholder = document.createElement("div");
-boardDropPlaceholder.className = "board-drop-placeholder";
 
 const FLASH_TIMEOUT_MS = 3500;
 
@@ -127,6 +133,15 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function resolveApiAssetUrl(path) {
+  if (!path) return "";
+  try {
+    return new URL(path, API_ORIGIN).toString();
+  } catch (error) {
+    return String(path);
+  }
 }
 
 function formatDate(isoString) {
@@ -756,13 +771,16 @@ function renderNotificationsContent(notifications) {
 }
 
 function resetBoardUiState(boardId = null) {
+  clearBoardLanePan();
   boardUiState.currentBoardId = boardId;
   boardUiState.boardData = null;
   boardUiState.activeComposerListId = null;
+  boardUiState.editingListId = null;
   boardUiState.addListOpen = false;
   boardUiState.dragTaskId = null;
   boardUiState.laneScrollLeft = 0;
   clearBoardDragState();
+  clearBoardLaneDragState();
 }
 
 function rememberBoardData(boardId, boardData) {
@@ -825,6 +843,8 @@ function boardIcon(name) {
       '<svg class="board-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>',
     close:
       '<svg class="board-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+    grip:
+      '<svg class="board-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="6.5" cy="12" r="1.7"></circle><circle cx="12" cy="12" r="1.7"></circle><circle cx="17.5" cy="12" r="1.7"></circle></svg>',
   };
   return icons[name] || "";
 }
@@ -1074,6 +1094,7 @@ function renderBoardSettingsPopover(boardData, boardId) {
 function renderBoardCard(task, boardId) {
   const description = String(task.description || "").trim();
   const coverImage = task.cover_image;
+  const coverImageUrl = coverImage ? resolveApiAssetUrl(coverImage.url) : "";
   return `
     <article
       class="board-card ${task.is_completed ? "board-card--completed" : ""}"
@@ -1091,7 +1112,7 @@ function renderBoardCard(task, boardId) {
               data-board-id="${boardId}"
               data-task-id="${task.id}"
             >
-              <img class="board-card__cover-image" src="${escapeHtml(coverImage.url)}" alt="${escapeHtml(task.title)}">
+              <img class="board-card__cover-image" src="${escapeHtml(coverImageUrl)}" alt="${escapeHtml(task.title)}">
             </button>
           `
           : ""
@@ -1151,52 +1172,89 @@ function renderBoardCardComposer(boardId, listId) {
     return `
       <button class="board-composer__trigger" type="button" data-board-action="open-card-composer" data-list-id="${listId}">
         ${boardIcon("plus")}
-        <span>Add a card</span>
+        <span>Add a task</span>
       </button>
     `;
   }
 
   return `
-    <form class="board-composer" data-action="create-card" data-board-id="${boardId}" data-list-id="${listId}">
+    <form class="board-composer board-card board-card--composer" data-action="create-card" data-board-id="${boardId}" data-list-id="${listId}">
       <label class="sr-only" for="card_title_${listId}">Card title</label>
       <textarea
         id="card_title_${listId}"
-        class="board-textarea"
+        class="board-composer__title"
         name="title"
-        rows="3"
+        rows="2"
         maxlength="200"
-        placeholder="What needs to get done?"
+        placeholder="Write a task title"
         required
       ></textarea>
       <label class="sr-only" for="card_description_${listId}">Card description</label>
       <textarea
         id="card_description_${listId}"
-        class="board-textarea"
+        class="board-composer__description"
         name="description"
         rows="3"
-        placeholder="Add context or a handoff note"
+        placeholder="Add notes or context"
       ></textarea>
       <div class="board-composer__actions">
-        <button class="board-button board-button--primary" type="submit">Add card</button>
+        <button class="board-button board-button--primary" type="submit">Create task</button>
         <button class="board-button board-button--ghost" type="button" data-board-action="cancel-card-composer">Cancel</button>
       </div>
     </form>
   `;
 }
 
+function renderBoardLaneTitle(boardId, list) {
+  if (boardUiState.editingListId === list.id) {
+    return `
+      <form class="board-lane__title-form" data-action="rename-list" data-board-id="${boardId}" data-list-id="${list.id}">
+        <input
+          id="list_title_${list.id}"
+          class="board-lane__title-input"
+          name="title"
+          maxlength="80"
+          value="${escapeHtml(list.title)}"
+          required
+        >
+        <div class="board-lane__title-actions">
+          <button class="board-button board-button--primary board-button--compact" type="submit">Save</button>
+          <button class="board-button board-button--ghost board-button--compact" type="button" data-board-action="cancel-list-editor">Cancel</button>
+        </div>
+      </form>
+    `;
+  }
+
+  return `
+    <button class="board-lane__title-button" type="button" data-board-action="open-list-editor" data-list-id="${list.id}">
+      <span class="board-lane__title-text">${escapeHtml(list.title)}</span>
+    </button>
+  `;
+}
+
 function renderBoardLane(boardId, list) {
   return `
-    <article class="board-lane" data-list-shell="${list.id}">
+    <article class="board-lane" data-list-shell="${list.id}" data-board-lane="${list.id}">
       <header class="board-lane__header">
-        <div>
-          <h2 class="board-lane__title">${escapeHtml(list.title)}</h2>
-          <p class="board-lane__count">${list.tasks.length} card${list.tasks.length === 1 ? "" : "s"}</p>
+        <div class="board-lane__header-main">
+          ${renderBoardLaneTitle(boardId, list)}
         </div>
+        <button
+          class="board-lane__drag-handle"
+          type="button"
+          draggable="true"
+          data-lane-drag-handle
+          data-list-id="${list.id}"
+          aria-label="Reorder list ${escapeHtml(list.title)}"
+          title="Drag to reorder"
+        >
+          ${boardIcon("grip")}
+        </button>
       </header>
       <div class="board-lane__cards" data-card-list data-list-id="${list.id}">
         ${list.tasks.map((task) => renderBoardCard(task, boardId)).join("")}
+        ${renderBoardCardComposer(boardId, list.id)}
       </div>
-      ${renderBoardCardComposer(boardId, list.id)}
     </article>
   `;
 }
@@ -1279,12 +1337,14 @@ function renderBoardTaskModal(boardData, boardId) {
   const attachmentsHtml = attachments.length
     ? attachments
         .map(
-          (attachment) => `
+          (attachment) => {
+            const attachmentUrl = resolveApiAssetUrl(attachment.url);
+            return `
             <article class="board-attachment">
               <a class="board-attachment__media" href="${escapeHtml(
-                attachment.url
+                attachmentUrl
               )}" target="_blank" rel="noreferrer">
-                <img class="board-attachment__image" src="${escapeHtml(attachment.url)}" alt="${escapeHtml(
+                <img class="board-attachment__image" src="${escapeHtml(attachmentUrl)}" alt="${escapeHtml(
                   attachment.original_name
                 )}">
               </a>
@@ -1298,13 +1358,14 @@ function renderBoardTaskModal(boardData, boardId) {
                 </form>
               </div>
             </article>
-          `
+          `;
+          }
         )
         .join("")
     : '<div class="board-empty">No images yet.</div>';
 
   return `
-    <div class="board-modal" data-board-action="close-modal">
+    <div class="board-modal">
       <div class="board-modal__dialog">
         <div class="board-modal__header">
           <div>
@@ -1378,8 +1439,21 @@ function renderBoardTaskModal(boardData, boardId) {
           <aside class="board-modal__panel">
             <p class="board-panel__title">Images</p>
             <form class="board-form-grid board-panel__section" data-action="upload-attachment" data-board-id="${boardId}" data-task-id="${selectedTask.id}">
-              <input class="board-input" type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif" required>
-              <button class="board-button board-button--primary board-button--block" type="submit">Upload image</button>
+              <input
+                id="task_attachment_${selectedTask.id}"
+                class="board-file-input sr-only"
+                type="file"
+                name="file"
+                data-board-file-input
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                required
+              >
+              <label class="board-file-picker" for="task_attachment_${selectedTask.id}">
+                <span class="board-file-picker__button">Choose image</span>
+                <span class="board-file-picker__name" data-board-file-name>No image selected</span>
+              </label>
+              <p class="board-panel__helper">PNG, JPG, WEBP, or GIF up to 8 MB.</p>
+              <button class="board-button board-button--primary board-button--block" type="submit">Upload cover</button>
             </form>
             <div class="board-panel__section">
               <div class="board-attachments">${attachmentsHtml}</div>
@@ -1441,6 +1515,58 @@ function attachBoardLaneScrollListener() {
     },
     { passive: true }
   );
+  lanes.addEventListener(
+    "wheel",
+    (event) => {
+      if (event.ctrlKey || event.metaKey) return;
+      const cardsScroller =
+        event.target instanceof Element ? event.target.closest(".board-lane__cards") : null;
+      if (cardsScroller && Math.abs(event.deltaY) >= Math.abs(event.deltaX)) {
+        const canScrollUp = cardsScroller.scrollTop > 0;
+        const canScrollDown =
+          cardsScroller.scrollTop + cardsScroller.clientHeight < cardsScroller.scrollHeight - 1;
+        if ((event.deltaY < 0 && canScrollUp) || (event.deltaY > 0 && canScrollDown)) {
+          return;
+        }
+      }
+      const horizontalDelta =
+        Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (!horizontalDelta) return;
+      lanes.scrollLeft += horizontalDelta;
+      boardUiState.laneScrollLeft = lanes.scrollLeft;
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+  lanes.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    if (boardUiState.dragTaskId) return;
+    if (shouldBlockBoardLanePan(event.target)) return;
+    if (lanes.scrollWidth <= lanes.clientWidth + 4) return;
+
+    const startX = event.clientX;
+    const startScrollLeft = lanes.scrollLeft;
+    lanes.classList.add("board-lanes--panning");
+
+    const handleMouseMove = (moveEvent) => {
+      const delta = moveEvent.clientX - startX;
+      lanes.scrollLeft = startScrollLeft - delta;
+      boardUiState.laneScrollLeft = lanes.scrollLeft;
+      moveEvent.preventDefault();
+    };
+
+    const stopPanning = () => {
+      lanes.classList.remove("board-lanes--panning");
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", stopPanning);
+      boardUiState.lanePanCleanup = null;
+    };
+
+    clearBoardLanePan();
+    boardUiState.lanePanCleanup = stopPanning;
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", stopPanning);
+  });
 }
 
 function renderBoardPageFromState() {
@@ -1489,32 +1615,76 @@ async function refreshBoardData() {
   }
 }
 
-function getBoardDropTarget(container, clientY) {
+function shouldBlockBoardLanePan(target) {
+  return !(
+    target instanceof Element
+  ) || Boolean(
+    target.closest(
+      "[data-card], button, input, textarea, select, option, a, summary, details, form, label, [data-board-action]"
+    )
+  );
+}
+
+function clearBoardLanePan() {
+  if (typeof boardUiState.lanePanCleanup === "function") {
+    boardUiState.lanePanCleanup();
+  }
+}
+
+function resolveBoardDropList(target) {
+  if (!(target instanceof Element)) return null;
+  const directList = target.closest("[data-card-list]");
+  if (directList) return directList;
+  const laneShell = target.closest("[data-list-shell]");
+  return laneShell ? laneShell.querySelector("[data-card-list]") : null;
+}
+
+function getBoardDropPosition(container, clientY) {
   const draggableCards = [
     ...container.querySelectorAll("[data-card]:not(.board-card--dragging)"),
   ];
-  let closest = null;
-  let closestOffset = Number.NEGATIVE_INFINITY;
 
-  draggableCards.forEach((card) => {
+  for (const [index, card] of draggableCards.entries()) {
     const box = card.getBoundingClientRect();
-    const offset = clientY - box.top - box.height / 2;
-    if (offset < 0 && offset > closestOffset) {
-      closestOffset = offset;
-      closest = card;
+    if (clientY < box.top + box.height / 2) {
+      return { position: index, targetCard: card };
     }
-  });
+  }
 
-  return closest;
+  return { position: draggableCards.length, targetCard: null };
 }
 
 function buildBoardDragPreview(card) {
   const preview = card.cloneNode(true);
+  const boardShell = card.closest(".board-shell");
+  if (boardShell) {
+    const shellStyles = window.getComputedStyle(boardShell);
+    [
+      "--board-background",
+      "--board-overlay",
+      "--board-accent",
+      "--board-accent-soft",
+      "--board-surface",
+      "--board-column",
+      "--board-card",
+      "--board-border",
+      "--board-text",
+      "--board-muted",
+      "--board-footer",
+      "--board-success",
+    ].forEach((name) => {
+      preview.style.setProperty(name, shellStyles.getPropertyValue(name));
+    });
+  }
   preview.classList.add("board-drag-preview");
+  preview.removeAttribute("draggable");
   preview.style.position = "fixed";
   preview.style.top = "-1000px";
   preview.style.left = "-1000px";
   preview.style.width = `${card.getBoundingClientRect().width}px`;
+  preview.style.height = `${card.getBoundingClientRect().height}px`;
+  preview.style.transform = "rotate(7deg) scale(1.02)";
+  preview.style.opacity = "0.98";
   document.body.appendChild(preview);
   boardUiState.dragPreviewEl = preview;
   return preview;
@@ -1527,27 +1697,135 @@ function autoScrollBoardLanes(clientX) {
   const threshold = Math.min(120, rect.width * 0.18);
 
   if (clientX < rect.left + threshold) {
-    lanes.scrollLeft -= 18;
+    const intensity = 1 - Math.max(0, clientX - rect.left) / threshold;
+    lanes.scrollLeft -= Math.round(14 + intensity * 28);
   } else if (clientX > rect.right - threshold) {
-    lanes.scrollLeft += 18;
+    const intensity = 1 - Math.max(0, rect.right - clientX) / threshold;
+    lanes.scrollLeft += Math.round(14 + intensity * 28);
   }
+  boardUiState.laneScrollLeft = lanes.scrollLeft;
 }
 
-function clearBoardDragState() {
-  boardUiState.dragTaskId = null;
-  if (boardUiState.dragPreviewEl) {
-    boardUiState.dragPreviewEl.remove();
-    boardUiState.dragPreviewEl = null;
-  }
-  if (boardDropPlaceholder.parentNode) {
-    boardDropPlaceholder.parentNode.removeChild(boardDropPlaceholder);
-  }
+function clearBoardDropIndicators() {
   appRoot
     .querySelectorAll(".board-lane__cards.is-drag-target")
     .forEach((element) => element.classList.remove("is-drag-target"));
   appRoot
+    .querySelectorAll(".board-card--drop-target")
+    .forEach((element) => element.classList.remove("board-card--drop-target"));
+}
+
+function updateBoardDropIndicators(list, dropPosition) {
+  clearBoardDropIndicators();
+  boardUiState.dragTargetListId = null;
+  boardUiState.dragTargetPosition = null;
+  if (!list || !dropPosition) return;
+
+  list.classList.add("is-drag-target");
+  if (dropPosition.targetCard) {
+    dropPosition.targetCard.classList.add("board-card--drop-target");
+  }
+  boardUiState.dragTargetListId = Number(list.dataset.listId);
+  boardUiState.dragTargetPosition = dropPosition.position;
+}
+
+function clearBoardDragState() {
+  boardUiState.dragTaskId = null;
+  boardUiState.dragTargetListId = null;
+  boardUiState.dragTargetPosition = null;
+  if (boardUiState.dragPreviewEl) {
+    boardUiState.dragPreviewEl.remove();
+    boardUiState.dragPreviewEl = null;
+  }
+  clearBoardDropIndicators();
+  appRoot
     .querySelectorAll(".board-card--dragging")
     .forEach((element) => element.classList.remove("board-card--dragging"));
+}
+
+function buildBoardLaneDragPreview(lane) {
+  const preview = lane.cloneNode(true);
+  const boardShell = lane.closest(".board-shell");
+  if (boardShell) {
+    const shellStyles = window.getComputedStyle(boardShell);
+    [
+      "--board-background",
+      "--board-overlay",
+      "--board-accent",
+      "--board-accent-soft",
+      "--board-surface",
+      "--board-column",
+      "--board-card",
+      "--board-border",
+      "--board-text",
+      "--board-muted",
+      "--board-footer",
+      "--board-success",
+    ].forEach((name) => {
+      preview.style.setProperty(name, shellStyles.getPropertyValue(name));
+    });
+  }
+  preview.classList.add("board-lane-drag-preview");
+  preview.removeAttribute("draggable");
+  preview.style.position = "fixed";
+  preview.style.top = "-1000px";
+  preview.style.left = "-1000px";
+  preview.style.width = `${lane.getBoundingClientRect().width}px`;
+  preview.style.height = `${lane.getBoundingClientRect().height}px`;
+  document.body.appendChild(preview);
+  boardUiState.dragLanePreviewEl = preview;
+  return preview;
+}
+
+function getBoardLaneDropPosition(clientX) {
+  const lanes = [
+    ...appRoot.querySelectorAll("[data-board-lane]"),
+  ].filter((lane) => Number(lane.dataset.boardLane) !== boardUiState.dragLaneId);
+
+  for (const [index, lane] of lanes.entries()) {
+    const box = lane.getBoundingClientRect();
+    if (clientX < box.left + box.width / 2) {
+      return { position: index, targetLane: lane };
+    }
+  }
+
+  return { position: lanes.length, targetLane: null };
+}
+
+function clearBoardLaneDropIndicators() {
+  appRoot
+    .querySelectorAll(".board-lane--drop-target")
+    .forEach((element) => element.classList.remove("board-lane--drop-target"));
+  appRoot.querySelector("[data-board-lanes]")?.classList.remove("board-lanes--drop-tail");
+}
+
+function updateBoardLaneDropIndicators(dropData) {
+  clearBoardLaneDropIndicators();
+  boardUiState.dragLaneTargetListId = null;
+  boardUiState.dragLaneTargetPosition = null;
+  if (!dropData) return;
+
+  if (dropData.targetLane) {
+    dropData.targetLane.classList.add("board-lane--drop-target");
+    boardUiState.dragLaneTargetListId = Number(dropData.targetLane.dataset.boardLane);
+  } else {
+    appRoot.querySelector("[data-board-lanes]")?.classList.add("board-lanes--drop-tail");
+  }
+  boardUiState.dragLaneTargetPosition = dropData.position;
+}
+
+function clearBoardLaneDragState() {
+  boardUiState.dragLaneId = null;
+  boardUiState.dragLaneTargetListId = null;
+  boardUiState.dragLaneTargetPosition = null;
+  if (boardUiState.dragLanePreviewEl) {
+    boardUiState.dragLanePreviewEl.remove();
+    boardUiState.dragLanePreviewEl = null;
+  }
+  clearBoardLaneDropIndicators();
+  appRoot
+    .querySelectorAll(".board-lane--dragging")
+    .forEach((element) => element.classList.remove("board-lane--dragging"));
 }
 
 function renderBoardContentLegacy(boardData, boardId, taskId) {
@@ -2045,6 +2323,16 @@ async function handleSubmit(event) {
       await refreshBoardData();
       return;
     }
+    if (action === "rename-list") {
+      await api(`/boards/${form.dataset.boardId}/lists/${form.dataset.listId}`, {
+        method: "PATCH",
+        body: payload,
+      });
+      setFlash("success", "List renamed.");
+      boardUiState.editingListId = null;
+      await refreshBoardData();
+      return;
+    }
     if (action === "create-task" || action === "create-card") {
       await api(`/boards/${form.dataset.boardId}/lists/${form.dataset.listId}/tasks`, {
         method: "POST",
@@ -2134,10 +2422,14 @@ appRoot.addEventListener("click", (event) => {
   if (actionable.dataset.boardAction === "toggle-complete") return;
 
   if (actionable.dataset.boardAction === "open-card-composer") {
+    boardUiState.editingListId = null;
     boardUiState.activeComposerListId = Number(actionable.dataset.listId);
     renderBoardPageFromState();
     const field = appRoot.querySelector(`#card_title_${boardUiState.activeComposerListId}`);
-    if (field) field.focus();
+    if (field) {
+      field.focus();
+      field.closest(".board-card--composer")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
     return;
   }
 
@@ -2147,7 +2439,26 @@ appRoot.addEventListener("click", (event) => {
     return;
   }
 
+  if (actionable.dataset.boardAction === "open-list-editor") {
+    boardUiState.activeComposerListId = null;
+    boardUiState.editingListId = Number(actionable.dataset.listId);
+    renderBoardPageFromState();
+    const field = appRoot.querySelector(`#list_title_${boardUiState.editingListId}`);
+    if (field) {
+      field.focus();
+      field.select();
+    }
+    return;
+  }
+
+  if (actionable.dataset.boardAction === "cancel-list-editor") {
+    boardUiState.editingListId = null;
+    renderBoardPageFromState();
+    return;
+  }
+
   if (actionable.dataset.boardAction === "open-list-composer") {
+    boardUiState.editingListId = null;
     boardUiState.addListOpen = true;
     renderBoardPageFromState();
     const field = appRoot.querySelector("#new_list_title");
@@ -2175,6 +2486,18 @@ appRoot.addEventListener("change", async (event) => {
   const route = parseHashRoute();
   if (route.name !== "board" || !Number.isFinite(route.boardId)) return;
 
+  const fileInput = event.target.closest("[data-board-file-input]");
+  if (fileInput) {
+    const fileName = fileInput.files?.[0]?.name || "No image selected";
+    const fileNameLabel = fileInput
+      .closest("form")
+      ?.querySelector("[data-board-file-name]");
+    if (fileNameLabel) {
+      fileNameLabel.textContent = fileName;
+    }
+    return;
+  }
+
   const actionable = event.target.closest("[data-board-action='toggle-complete']");
   if (!actionable) return;
 
@@ -2196,6 +2519,21 @@ appRoot.addEventListener("dragstart", (event) => {
   const route = parseHashRoute();
   if (route.name !== "board" || !Number.isFinite(route.boardId)) return;
 
+  const laneHandle = event.target.closest("[data-lane-drag-handle]");
+  if (laneHandle) {
+    const lane = laneHandle.closest("[data-board-lane]");
+    if (!lane) return;
+
+    clearBoardLanePan();
+    boardUiState.dragLaneId = Number(lane.dataset.boardLane);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `lane:${boardUiState.dragLaneId}`);
+    const preview = buildBoardLaneDragPreview(lane);
+    lane.classList.add("board-lane--dragging");
+    event.dataTransfer.setDragImage(preview, 40, 24);
+    return;
+  }
+
   const card = event.target.closest("[data-card]");
   if (!card) return;
 
@@ -2203,50 +2541,76 @@ appRoot.addEventListener("dragstart", (event) => {
   event.dataTransfer.effectAllowed = "move";
   event.dataTransfer.setData("text/plain", String(boardUiState.dragTaskId));
   const preview = buildBoardDragPreview(card);
+  card.classList.add("board-card--dragging");
   event.dataTransfer.setDragImage(preview, 30, 24);
-  window.setTimeout(() => card.classList.add("board-card--dragging"), 0);
 });
 
 appRoot.addEventListener("dragover", (event) => {
   const route = parseHashRoute();
   if (route.name !== "board" || !Number.isFinite(route.boardId)) return;
 
+  if (boardUiState.dragLaneId) {
+    const lanesContainer =
+      event.target.closest("[data-board-lanes]") || appRoot.querySelector("[data-board-lanes]");
+    if (!lanesContainer) return;
+
+    event.preventDefault();
+    autoScrollBoardLanes(event.clientX);
+    updateBoardLaneDropIndicators(getBoardLaneDropPosition(event.clientX));
+    return;
+  }
+
   if (!boardUiState.dragTaskId) return;
 
   autoScrollBoardLanes(event.clientX);
 
-  const list = event.target.closest("[data-card-list]");
+  const list = resolveBoardDropList(event.target);
   if (!list) return;
 
   event.preventDefault();
-  appRoot
-    .querySelectorAll(".board-lane__cards.is-drag-target")
-    .forEach((element) => {
-      if (element !== list) element.classList.remove("is-drag-target");
-    });
-  list.classList.add("is-drag-target");
-  const targetCard = getBoardDropTarget(list, event.clientY);
-  if (targetCard) {
-    list.insertBefore(boardDropPlaceholder, targetCard);
-  } else {
-    list.appendChild(boardDropPlaceholder);
-  }
+  updateBoardDropIndicators(list, getBoardDropPosition(list, event.clientY));
 });
 
 appRoot.addEventListener("drop", async (event) => {
   const route = parseHashRoute();
   if (route.name !== "board" || !Number.isFinite(route.boardId)) return;
 
-  const list = event.target.closest("[data-card-list]");
+  if (boardUiState.dragLaneId) {
+    const lanesContainer =
+      event.target.closest("[data-board-lanes]") || appRoot.querySelector("[data-board-lanes]");
+    if (!lanesContainer) return;
+
+    event.preventDefault();
+    const movingListId = boardUiState.dragLaneId;
+    const fallbackDrop = getBoardLaneDropPosition(event.clientX);
+    const position = Number.isInteger(boardUiState.dragLaneTargetPosition)
+      ? boardUiState.dragLaneTargetPosition
+      : fallbackDrop.position;
+
+    clearBoardLaneDragState();
+
+    try {
+      await api(`/boards/${route.boardId}/lists/${movingListId}/move`, {
+        method: "PATCH",
+        body: { position },
+      });
+      await refreshBoardData();
+    } catch (error) {
+      setFlash("error", error.message || "Unable to reorder list.");
+    }
+    return;
+  }
+
+  const list = resolveBoardDropList(event.target);
   if (!list || !boardUiState.dragTaskId) return;
 
   event.preventDefault();
-  const ordered = [...list.children].filter(
-    (element) => element.matches("[data-card]") || element === boardDropPlaceholder
-  );
-  const position = ordered.indexOf(boardDropPlaceholder);
   const movingTaskId = boardUiState.dragTaskId;
-  const targetListId = Number(list.dataset.listId);
+  const fallbackDrop = getBoardDropPosition(list, event.clientY);
+  const targetListId = boardUiState.dragTargetListId ?? Number(list.dataset.listId);
+  const position = Number.isInteger(boardUiState.dragTargetPosition)
+    ? boardUiState.dragTargetPosition
+    : fallbackDrop.position;
 
   clearBoardDragState();
 
@@ -2266,6 +2630,7 @@ appRoot.addEventListener("drop", async (event) => {
 
 appRoot.addEventListener("dragend", () => {
   clearBoardDragState();
+  clearBoardLaneDragState();
 });
 
 document.addEventListener("keydown", (event) => {

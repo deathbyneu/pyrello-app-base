@@ -183,6 +183,22 @@ def _move_task_to_position(task: Task, target_list: BoardList, target_position: 
     task.is_completed = _list_is_done(target_list)
 
 
+def _move_list_to_position(board_list: BoardList, target_position: int) -> None:
+    target_position = max(0, target_position)
+    board_lists = (
+        BoardList.query.filter(
+            BoardList.board_id == board_list.board_id,
+            BoardList.id != board_list.id,
+        )
+        .order_by(BoardList.position.asc(), BoardList.id.asc())
+        .all()
+    )
+    target_position = min(target_position, len(board_lists))
+    board_lists.insert(target_position, board_list)
+    for index, candidate in enumerate(board_lists):
+        candidate.position = index
+
+
 def _api_ok(data: Any = None, message: str | None = None, status_code: int = 200):
     payload = {"ok": True, "data": data}
     if message:
@@ -922,6 +938,71 @@ def api_create_list(board_id: int):
         {"id": board_list.id, "title": board_list.title, "position": board_list.position},
         "List created.",
         201,
+    )
+
+
+@api_bp.patch("/boards/<int:board_id>/lists/<int:list_id>")
+@_api_login_required
+def api_update_list(board_id: int, list_id: int):
+    board = db.session.get(Board, board_id)
+    if board is None:
+        return _api_error("Board not found.", 404)
+    member = _require_board_member(board)
+    if member is None:
+        return _api_error("You are not a board member.", 403)
+
+    board_list = db.session.get(BoardList, list_id)
+    if board_list is None or board_list.board_id != board.id:
+        return _api_error("List not found.", 404)
+
+    payload = _payload()
+    title = str(payload.get("title", "")).strip()
+    if not title:
+        return _api_error("List title is required.")
+
+    duplicate = (
+        BoardList.query.filter(
+            BoardList.board_id == board.id,
+            func.lower(BoardList.title) == title.lower(),
+            BoardList.id != board_list.id,
+        ).first()
+    )
+    if duplicate:
+        return _api_error("A list with this title already exists.", 409)
+
+    board_list.title = title
+    db.session.commit()
+    return _api_ok(
+        {"id": board_list.id, "title": board_list.title, "position": board_list.position},
+        "List updated.",
+    )
+
+
+@api_bp.patch("/boards/<int:board_id>/lists/<int:list_id>/move")
+@_api_login_required
+def api_move_list(board_id: int, list_id: int):
+    board = db.session.get(Board, board_id)
+    if board is None:
+        return _api_error("Board not found.", 404)
+    member = _require_board_member(board)
+    if member is None:
+        return _api_error("You are not a board member.", 403)
+
+    board_list = db.session.get(BoardList, list_id)
+    if board_list is None or board_list.board_id != board.id:
+        return _api_error("List not found.", 404)
+
+    payload = _payload()
+    try:
+        target_position = int(payload.get("position", 0))
+    except (TypeError, ValueError):
+        target_position = 0
+
+    _move_list_to_position(board_list, target_position)
+    db.session.commit()
+    return _api_ok(
+        {"id": board_list.id, "title": board_list.title, "position": board_list.position},
+        "List moved.",
     )
 
 
