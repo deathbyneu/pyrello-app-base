@@ -849,6 +849,34 @@ def api_join_board(board_id: int):
     return _api_ok(_serialize_board_summary(board), "Joined board.")
 
 
+@api_bp.post("/boards/<int:board_id>/leave")
+@_api_login_required
+def api_leave_board(board_id: int):
+    board = db.session.get(Board, board_id)
+    if board is None:
+        return _api_error("Board not found.", 404)
+
+    member = _require_board_member(board)
+    if member is None:
+        return _api_error("You are not a board member.", 403)
+    if member.role == "owner":
+        return _api_error("Board owner cannot leave the board.", 403)
+
+    Task.query.filter_by(board_id=board.id, assignee_id=current_user.id).update(
+        {Task.assignee_id: None},
+        synchronize_session=False,
+    )
+    db.session.delete(member)
+    create_notification(
+        user_id=board.owner_id,
+        category="board_member",
+        message=f"{current_user.username} left your board {board.title}.",
+        link=board_link(board.id),
+    )
+    db.session.commit()
+    return _api_ok(_serialize_board_summary(board), "You left the board.")
+
+
 @api_bp.get("/boards/<int:board_id>")
 @_api_login_required
 def api_board_detail(board_id: int):

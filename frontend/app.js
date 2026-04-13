@@ -1,5 +1,6 @@
 const API_BASE = window.PYRELLO_API_BASE || "http://127.0.0.1:5000/api";
 const API_ORIGIN = new URL(API_BASE, window.location.href).origin;
+const BRAND_IMAGE_SRC = "./icons/pyrello.png";
 
 const appRoot = document.getElementById("app");
 
@@ -216,20 +217,34 @@ function renderFlashToast() {
   `;
 }
 
+function renderBrandLink(href, className, imageClassName) {
+  return `
+    <a href="${href}" class="${className}">
+      <img src="${BRAND_IMAGE_SRC}" alt="Pyrello" class="${imageClassName}">
+    </a>
+  `;
+}
+
 function renderAuthLayout(title, formHtml, alternateHtml) {
   return `
     ${renderFlashToast()}
     <header class="border-b border-[#2f2f2f] bg-[#171717]">
       <div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-        <a href="#/login" class="text-xl font-bold text-[#DEE4EA]">Pyrello</a>
+        ${renderBrandLink(
+          "#/login",
+          "flex items-center rounded px-1 py-1",
+          "h-8 w-auto",
+        )}
         <nav class="flex items-center gap-2 text-sm">
           <a href="#/login" class="rounded-md px-3 py-1.5 text-[#B6C2CF] hover:bg-[#282e33]">Login</a>
           <a href="#/register" class="rounded-md bg-[#579DFF] px-3 py-1.5 font-semibold text-[#091e42] hover:bg-[#85B8FF]">Register</a>
         </nav>
       </div>
     </header>
-    <main class="mx-auto w-full max-w-md px-4 py-10">
-      <section class="rounded-2xl border border-[#3e4852] bg-[#22272B] p-6 shadow-2xl">
+    <main class="auth-shell mx-auto flex min-h-[calc(100vh-57px)] w-full max-w-6xl items-center justify-center px-4 py-10">
+      <div class="auth-shell__glow auth-shell__glow--primary" aria-hidden="true"></div>
+      <div class="auth-shell__glow auth-shell__glow--secondary" aria-hidden="true"></div>
+      <section class="auth-card w-full max-w-md rounded-[26px] border border-white/10 bg-white/[0.06] p-6 shadow-2xl backdrop-blur-2xl">
         <h1 class="text-2xl font-bold text-[#DEE4EA]">${escapeHtml(title)}</h1>
         ${formHtml}
         <div class="mt-4 text-sm text-[#9FADBC]">${alternateHtml}</div>
@@ -325,51 +340,50 @@ function renderProtectedShell({
   return `
     ${renderFlashToast()}
     <header class="fixed inset-x-0 top-0 z-40 border-b border-[#2f2f2f] bg-[#171717]">
-      <div class="relative flex h-14 items-center px-3">
-        <a href="#/dashboard" class="group flex items-center gap-2 rounded px-2 py-1.5 text-[#DEE4EA] hover:bg-[#282e33]">
-          <svg viewBox="0 0 24 24" class="h-5 w-5 text-[#579DFF]" fill="currentColor" aria-hidden="true">
-            <rect x="2" y="3" width="20" height="18" rx="4"></rect>
-            <rect x="6.5" y="7" width="4" height="10" rx="1.2" class="text-white" fill="currentColor"></rect>
-            <rect x="13.5" y="7" width="4" height="6" rx="1.2" class="text-white" fill="currentColor"></rect>
-          </svg>
-          <span class="text-lg font-bold tracking-tight">Pyrello</span>
-        </a>
+      <div class="flex h-14 items-center gap-3 px-3">
+        ${renderBrandLink(
+          "#/dashboard",
+          "group flex shrink-0 items-center rounded px-2 py-1 hover:bg-[#282e33]",
+          "block h-8 w-auto",
+        )}
 
-        <div class="absolute left-1/2 top-1/2 hidden w-[min(54rem,calc(100%-20rem))] -translate-x-1/2 -translate-y-1/2 items-center gap-2 md:flex">
-          <form data-action="search" class="flex-1">
-            <label class="relative block">
-              <svg viewBox="0 0 24 24" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8590a2]" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="7"></circle>
-                <line x1="20" y1="20" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input
-                name="q"
-                value="${escapeHtml(searchValue)}"
-                placeholder="Search your workspace"
-                class="h-9 w-full rounded-md border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-[#DEE4EA] outline-none transition placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-md"
-              >
-            </label>
-          </form>
+        <div class="hidden min-w-0 flex-1 justify-center md:flex">
+          <div class="flex w-full max-w-[54rem] items-center gap-2 px-2">
+            <form data-action="search" class="min-w-0 flex-1">
+              <label class="relative block">
+                <svg viewBox="0 0 24 24" class="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[#8590a2]" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="7"></circle>
+                  <line x1="20" y1="20" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input
+                  name="q"
+                  value="${escapeHtml(searchValue)}"
+                  placeholder="Search your workspace"
+                  class="relative z-0 h-9 w-full rounded-md border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-[#DEE4EA] outline-none transition placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-md"
+                >
+              </label>
+            </form>
 
-          <details class="relative">
-            <summary class="list-none rounded-md bg-[#579DFF] px-3 py-1.5 text-sm font-semibold text-[#091e42] hover:bg-[#85B8FF]">
-              Create
-            </summary>
-            <div class="dropdown-panel absolute left-0 top-[calc(100%+8px)] w-[360px] rounded-xl border border-white/[0.12] p-4 shadow-2xl" style="background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%); backdrop-filter: blur(24px) saturate(180%);">
-              <h3 class="text-center text-sm font-semibold text-[#DEE4EA]">Create workspace</h3>
-              <form data-action="create-board" class="mt-4 space-y-3">
-                <input name="title" required maxlength="120" placeholder="Board title" class="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-sm">
-                <label class="flex items-center gap-2 text-xs text-[#9fadbc]">
-                  <input type="checkbox" name="allow_public_join" class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#579DFF] focus:ring-[#579DFF]">
-                  Let everyone join this workspace
-                </label>
-                <button class="w-full rounded-md bg-[#579DFF] px-3 py-2 text-sm font-semibold text-[#091e42] hover:bg-[#85B8FF]">Create board</button>
-              </form>
-            </div>
-          </details>
+            <details class="relative shrink-0">
+              <summary class="list-none rounded-md bg-[#579DFF] px-3 py-1.5 text-sm font-semibold text-[#091e42] hover:bg-[#85B8FF]">
+                Create
+              </summary>
+              <div class="dropdown-panel absolute left-0 top-[calc(100%+8px)] w-[360px] rounded-xl border border-white/[0.12] p-4 shadow-2xl" style="background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%); backdrop-filter: blur(24px) saturate(180%);">
+                <h3 class="text-center text-sm font-semibold text-[#DEE4EA]">Create workspace</h3>
+                <form data-action="create-board" class="mt-4 space-y-3">
+                  <input name="title" required maxlength="120" placeholder="Board title" class="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-sm">
+                  <label class="flex items-center gap-2 text-xs text-[#9fadbc]">
+                    <input type="checkbox" name="allow_public_join" class="h-4 w-4 rounded border-white/20 bg-white/5 text-[#579DFF] focus:ring-[#579DFF]">
+                    Let everyone join this workspace
+                  </label>
+                  <button class="w-full rounded-md bg-[#579DFF] px-3 py-2 text-sm font-semibold text-[#091e42] hover:bg-[#85B8FF]">Create board</button>
+                </form>
+              </div>
+            </details>
+          </div>
         </div>
 
-        <div class="ml-auto flex items-center gap-1">
+        <div class="ml-auto flex shrink-0 items-center gap-1">
           <details class="relative">
             <summary class="relative list-none rounded-md p-2 text-[#9FADBC] hover:bg-[#282e33] hover:text-[#DEE4EA]" title="Friends and invites">
               <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2">
@@ -491,13 +505,13 @@ function renderLoginPage() {
     <form data-action="login" class="mt-6 space-y-4">
       <div>
         <label class="mb-1 block text-sm text-[#DEE4EA]" for="login_username">Username</label>
-        <input id="login_username" name="username" required class="w-full rounded-md border border-[#3e4852] bg-[#1D2125] px-3 py-2 text-sm text-[#DEE4EA] outline-none focus:border-[#579DFF]">
+        <input id="login_username" name="username" required class="auth-input w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm focus:border-[#85B8FF]">
       </div>
       <div>
         <label class="mb-1 block text-sm text-[#DEE4EA]" for="login_password">Password</label>
-        <input id="login_password" type="password" name="password" required class="w-full rounded-md border border-[#3e4852] bg-[#1D2125] px-3 py-2 text-sm text-[#DEE4EA] outline-none focus:border-[#579DFF]">
+        <input id="login_password" type="password" name="password" required class="auth-input w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm focus:border-[#85B8FF]">
       </div>
-      <button class="w-full rounded-md bg-[#579DFF] px-3 py-2 font-semibold text-[#091e42] hover:bg-[#85B8FF]">Login</button>
+      <button class="auth-submit w-full rounded-xl bg-[#579DFF] px-3 py-2.5 font-semibold text-[#091e42] shadow-lg shadow-[#579DFF]/25 hover:bg-[#85B8FF]">Login</button>
     </form>
   `;
   const alternateHtml = `No account? <a href="#/register" class="text-[#85B8FF] hover:text-[#cce0ff]">Create one</a>`;
@@ -509,17 +523,17 @@ function renderRegisterPage() {
     <form data-action="register" class="mt-6 space-y-4">
       <div>
         <label class="mb-1 block text-sm text-[#DEE4EA]" for="register_username">Username</label>
-        <input id="register_username" name="username" required minlength="3" maxlength="40" class="w-full rounded-md border border-[#3e4852] bg-[#1D2125] px-3 py-2 text-sm text-[#DEE4EA] outline-none focus:border-[#579DFF]">
+        <input id="register_username" name="username" required minlength="3" maxlength="40" class="auth-input w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm focus:border-[#85B8FF]">
       </div>
       <div>
         <label class="mb-1 block text-sm text-[#DEE4EA]" for="register_password">Password</label>
-        <input id="register_password" type="password" name="password" required minlength="6" class="w-full rounded-md border border-[#3e4852] bg-[#1D2125] px-3 py-2 text-sm text-[#DEE4EA] outline-none focus:border-[#579DFF]">
+        <input id="register_password" type="password" name="password" required minlength="6" class="auth-input w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm focus:border-[#85B8FF]">
       </div>
       <div>
         <label class="mb-1 block text-sm text-[#DEE4EA]" for="register_confirm_password">Confirm password</label>
-        <input id="register_confirm_password" type="password" name="confirm_password" required minlength="6" class="w-full rounded-md border border-[#3e4852] bg-[#1D2125] px-3 py-2 text-sm text-[#DEE4EA] outline-none focus:border-[#579DFF]">
+        <input id="register_confirm_password" type="password" name="confirm_password" required minlength="6" class="auth-input w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm focus:border-[#85B8FF]">
       </div>
-      <button class="w-full rounded-md bg-[#579DFF] px-3 py-2 font-semibold text-[#091e42] hover:bg-[#85B8FF]">Register</button>
+      <button class="auth-submit w-full rounded-xl bg-[#579DFF] px-3 py-2.5 font-semibold text-[#091e42] shadow-lg shadow-[#579DFF]/25 hover:bg-[#85B8FF]">Register</button>
     </form>
   `;
   const alternateHtml = `Already have account? <a href="#/login" class="text-[#85B8FF] hover:text-[#cce0ff]">Login</a>`;
@@ -923,6 +937,7 @@ function renderBoardSharePopover(boardData, boardId) {
 function renderBoardSettingsPopover(boardData, boardId) {
   const board = boardData.board;
   const canManage = Boolean(boardData.can_manage_board);
+  const canLeaveBoard = boardData.member_role !== "owner";
   const backgroundLabel = board.background_image_url
     ? board.background_image_name || "Custom background image"
     : "Default white background";
@@ -1022,6 +1037,18 @@ function renderBoardSettingsPopover(boardData, boardId) {
                   </div>
                 </div>
               </div>
+              ${
+                canLeaveBoard
+                  ? `
+                    <form class="board-panel__section" data-action="leave-board" data-board-id="${boardId}">
+                      <p class="board-panel__helper">Leave this board to remove it from your workspace. Tasks currently assigned to you will be unassigned.</p>
+                      <button class="board-button board-button--danger board-button--block" type="submit">
+                        Leave board
+                      </button>
+                    </form>
+                  `
+                  : ""
+              }
             `
         }
       </div>
@@ -2282,6 +2309,20 @@ async function handleSubmit(event) {
       if (!window.confirm("Delete this board permanently?")) return;
       await api(`/boards/${form.dataset.boardId}`, { method: "DELETE" });
       setFlash("success", "Board deleted.");
+      resetBoardUiState(null);
+      window.location.hash = "#/dashboard";
+      return;
+    }
+    if (action === "leave-board") {
+      if (
+        !window.confirm(
+          "Leave this board? Any tasks assigned to you on this board will be unassigned.",
+        )
+      ) {
+        return;
+      }
+      await api(`/boards/${form.dataset.boardId}/leave`, { method: "POST" });
+      setFlash("info", "You left the board.");
       resetBoardUiState(null);
       window.location.hash = "#/dashboard";
       return;
