@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% set layout_hide_sidebar = true %}
+
+{% block title %}{{ board.title }} | Pyrello{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='board.css', v='board-v1') }}">
+{% endblock %}
+
+{% block content %}
+  <section
+    id="board-app"
+    class="board-app"
+    data-board-id="{{ board.id }}"
+    data-board-title="{{ board.title }}"
+    data-dashboard-url="{{ url_for('main.dashboard') }}"
+  >
+    <div class="board-loading">
+      <div class="board-loading__card">
+        <span class="board-loading__pulse"></span>
+        <p class="board-loading__title">Loading board</p>
+        <p class="board-loading__text">Pulling lists, cards, members, and settings.</p>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block extra_scripts %}
+  <script src="{{ url_for('static', filename='board.js', v='board-v1') }}" defer></script>
+{% endblock %}

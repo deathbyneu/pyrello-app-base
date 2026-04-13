@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Boards | Pyrello{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-6xl">
+  <form method="get" action="{{ url_for('main.dashboard') }}" class="mb-4 md:hidden">
+    <input
+      name="q"
+      value="{{ workspace_query }}"
+      placeholder="Search your workspace"
+      class="h-9 w-full rounded-md border border-[#3e4852] bg-[#22272B] px-3 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-[#579DFF]"
+    >
+  </form>
+
+  <section class="rounded-xl border border-[#3e4852] bg-[#22272B] p-5">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h2 class="text-3xl font-extrabold tracking-tight text-[#DEE4EA]">Most popular templates</h2>
+        <p class="mt-1 text-[#9FADBC]">Get going faster with a template from the Trello community.</p>
+      </div>
+      <a href="#" class="text-[#9FADBC] hover:text-[#DEE4EA]">✕</a>
+    </div>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <select class="min-w-52 rounded-md border border-[#3e4852] bg-[#1D2125] px-3 py-2 text-sm text-[#DEE4EA] outline-none focus:border-[#579DFF]">
+        <option>Choose a category</option>
+      </select>
+      <a href="#" class="text-sm font-medium text-[#85B8FF] hover:text-[#cce0ff]">Browse the full template gallery</a>
+    </div>
+  </section>
+
+  {% if workspace_query %}
+    <p class="mt-5 text-sm text-[#9FADBC]">
+      Search results for <span class="font-semibold text-[#DEE4EA]">"{{ workspace_query }}"</span>
+    </p>
+  {% endif %}
+
+  {% set recent_memberships = memberships[:3] %}
+  <section class="mt-7">
+    <h3 class="text-2xl font-bold text-[#DEE4EA]">Recently viewed</h3>
+    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {% if recent_memberships %}
+        {% for membership in recent_memberships %}
+          <a href="{{ url_for('boards.board_detail', board_id=membership.board.id) }}" class="trello-board-card">
+            <div class="h-24 w-full" style="{{ membership.board.id|board_cover_style }}"></div>
+            <div class="space-y-1 p-3">
+              <div class="flex items-center justify-between gap-2">
+                <p class="line-clamp-1 font-semibold text-[#DEE4EA]">{{ membership.board.title }}</p>
+                <span class="rounded-full bg-[#3e4852] px-2 py-0.5 text-[11px] font-semibold uppercase text-[#9FADBC]">{{ membership.role }}</span>
+              </div>
+              <p class="line-clamp-2 text-sm text-[#9FADBC]">{{ membership.board.description or 'No description' }}</p>
+            </div>
+          </a>
+        {% endfor %}
+      {% else %}
+        <p class="rounded-md border border-[#3e4852] bg-[#22272B] px-3 py-3 text-sm text-[#9FADBC] sm:col-span-2 lg:col-span-3">
+          No boards yet. Use the Create button in the header to create your first workspace.
+        </p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="mt-8">
+    <h3 class="text-xl font-bold uppercase tracking-wide text-[#DEE4EA]">Your Workspaces</h3>
+    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {% if memberships %}
+        {% for membership in memberships %}
+          <a href="{{ url_for('boards.board_detail', board_id=membership.board.id) }}" class="trello-board-card">
+            <div class="h-24 w-full" style="{{ membership.board.id|board_cover_style }}"></div>
+            <div class="space-y-1 p-3">
+              <p class="line-clamp-1 font-semibold text-[#DEE4EA]">{{ membership.board.title }}</p>
+              <p class="line-clamp-2 text-sm text-[#9FADBC]">{{ membership.board.description or 'No description' }}</p>
+              <p class="pt-2 text-xs text-[#7e8b9d]">
+                {% if membership.board.allow_public_join %}Public join on{% else %}Private board{% endif %}
+              </p>
+            </div>
+          </a>
+        {% endfor %}
+      {% else %}
+        <p class="rounded-md border border-[#3e4852] bg-[#22272B] px-3 py-3 text-sm text-[#9FADBC] sm:col-span-2 lg:col-span-3">
+          You are not a member of any board yet.
+        </p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="mt-8 grid gap-6 lg:grid-cols-2">
+    <article class="rounded-xl border border-[#3e4852] bg-[#22272B] p-4">
+      <h3 class="text-lg font-semibold text-[#DEE4EA]">Board Invitations</h3>
+      <div class="mt-3 space-y-2">
+        {% if pending_board_invites %}
+          {% for invite in pending_board_invites %}
+            <div class="rounded-md border border-[#3e4852] bg-[#1D2125] p-3">
+              <p class="text-sm text-[#DEE4EA]">@{{ invite.inviter.username }} invited you to <span class="font-semibold">{{ invite.board.title }}</span></p>
+              <div class="mt-3 flex gap-2">
+                <form method="post" action="{{ url_for('main.accept_board_invite', invite_id=invite.id) }}">
+                  <button class="rounded bg-[#22A06B] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#1f8c5f]">Accept</button>
+                </form>
+                <form method="post" action="{{ url_for('main.decline_board_invite', invite_id=invite.id) }}">
+                  <button class="rounded bg-[#ae2e24] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#933123]">Decline</button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="rounded-md border border-[#3e4852] bg-[#1D2125] px-3 py-3 text-sm text-[#9FADBC]">No pending board invitations.</p>
+        {% endif %}
+      </div>
+    </article>
+
+    <article class="rounded-xl border border-[#3e4852] bg-[#22272B] p-4">
+      <h3 class="text-lg font-semibold text-[#DEE4EA]">Open Workspaces</h3>
+      <p class="mt-1 text-sm text-[#9FADBC]">Boards where everyone can join.</p>
+      <div class="mt-3 space-y-2">
+        {% if open_boards %}
+          {% for board in open_boards %}
+            <div class="rounded-md border border-[#3e4852] bg-[#1D2125] p-3">
+              <p class="font-semibold text-[#DEE4EA]">{{ board.title }}</p>
+              <p class="mt-1 text-sm text-[#9FADBC]">Owner: @{{ board.owner.username }}</p>
+              <form method="post" action="{{ url_for('boards.join_board', board_id=board.id) }}" class="mt-3">
+                <button class="rounded bg-[#579DFF] px-3 py-1.5 text-xs font-semibold text-[#091e42] hover:bg-[#85B8FF]">Join project</button>
+              </form>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="rounded-md border border-[#3e4852] bg-[#1D2125] px-3 py-3 text-sm text-[#9FADBC]">No open workspaces found.</p>
+        {% endif %}
+      </div>
+    </article>
+  </section>
+</div>
+{% endblock %}
