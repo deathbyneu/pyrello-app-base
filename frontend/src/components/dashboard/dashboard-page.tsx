@@ -111,7 +111,9 @@ export function DashboardPage() {
       bumpContentVersion();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Unable to decline invitation.";
+        error instanceof Error
+          ? error.message
+          : "Unable to decline invitation.";
       showToast("error", message);
     }
   };
@@ -140,7 +142,7 @@ export function DashboardPage() {
     <div className="mx-auto max-w-6xl">
       <form className="mb-4 md:hidden" onSubmit={handleSearchSubmit}>
         <input
-          className="h-9 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-md"
+          className="h-9 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/8 backdrop-blur-md"
           name="q"
           onChange={(event) => setSearchValue(event.target.value)}
           placeholder="Search your workspace"
@@ -151,7 +153,9 @@ export function DashboardPage() {
       {query ? (
         <p className="mt-5 text-sm text-[#9FADBC]">
           Search results for{" "}
-          <span className="font-semibold text-[#DEE4EA]">&quot;{query}&quot;</span>
+          <span className="font-semibold text-[#DEE4EA]">
+            &quot;{query}&quot;
+          </span>
         </p>
       ) : null}
 
@@ -239,7 +243,7 @@ export function DashboardPage() {
         </h3>
         <div className="mt-4 grid gap-6 lg:grid-cols-2">
           <article
-            className="rounded-xl border border-white/[0.12] p-4"
+            className="rounded-xl border border-white/12 p-4"
             style={{
               background:
                 "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)",
@@ -256,7 +260,9 @@ export function DashboardPage() {
                   >
                     <p className="text-sm text-[#DEE4EA]">
                       @{invite.inviter.username} invited you to{" "}
-                      <span className="font-semibold">{invite.board.title}</span>
+                      <span className="font-semibold">
+                        {invite.board.title}
+                      </span>
                     </p>
                     <div className="mt-3 flex gap-2">
                       <button
@@ -285,7 +291,7 @@ export function DashboardPage() {
           </article>
 
           <article
-            className="rounded-xl border border-white/[0.12] p-4"
+            className="rounded-xl border border-white/12 p-4"
             style={{
               background:
                 "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)",
@@ -303,7 +309,9 @@ export function DashboardPage() {
                     key={board.id}
                     className="rounded-md border border-white/10 bg-white/5 p-3 backdrop-blur-sm"
                   >
-                    <p className="font-semibold text-[#DEE4EA]">{board.title}</p>
+                    <p className="font-semibold text-[#DEE4EA]">
+                      {board.title}
+                    </p>
                     <p className="mt-1 text-sm text-[#9FADBC]">
                       Owner: @{board.owner_username}
                     </p>
