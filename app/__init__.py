@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import os
+import shutil
 
 from flask import Flask
 from flask_cors import CORS
 from sqlalchemy import inspect, or_, text
 
+from .board_backgrounds import pick_random_default_board_background
 from .extensions import db, login_manager
 from .models import Board, Task, User
 
@@ -75,16 +77,57 @@ def _backfill_board_defaults() -> None:
     boards_without_theme = Board.query.filter(
         or_(Board.theme_key.is_(None), Board.theme_key == "")
     ).all()
+    boards_without_background = Board.query.filter(
+        or_(Board.background_image_name.is_(None), Board.background_image_name == "")
+    ).all()
     tasks_without_completion = Task.query.filter(Task.is_completed.is_(None)).all()
 
-    if not boards_without_theme and not tasks_without_completion:
+    if (
+        not boards_without_theme
+        and not boards_without_background
+        and not tasks_without_completion
+    ):
         return
 
     for board in boards_without_theme:
         board.theme_key = "pyrello-night"
+    for board in boards_without_background:
+        default_background = pick_random_default_board_background()
+        board.background_image_name = default_background["storage_name"]
+        board.background_image_original_name = default_background["original_name"]
     for task in tasks_without_completion:
         task.is_completed = False
     db.session.commit()
+
+
+def _ensure_default_board_background_assets(app: Flask) -> None:
+    static_root = app.static_folder or "static"
+    source_dir = os.path.join(
+        app.root_path,
+        "..",
+        "frontend",
+        "public",
+        "images",
+        "default-wallpapers",
+    )
+    target_dir = os.path.join(
+        static_root,
+        "uploads",
+        "board_backgrounds",
+        "defaults",
+    )
+    os.makedirs(target_dir, exist_ok=True)
+    if not os.path.isdir(source_dir):
+        return
+
+    for file_name in os.listdir(source_dir):
+        source_path = os.path.join(source_dir, file_name)
+        target_path = os.path.join(target_dir, file_name)
+        if not os.path.isfile(source_path):
+            continue
+        if os.path.exists(target_path):
+            continue
+        shutil.copy2(source_path, target_path)
 
 
 def create_app() -> Flask:
@@ -103,6 +146,16 @@ def create_app() -> Flask:
         os.path.join(app.static_folder or "static", "uploads", "board_backgrounds"),
         exist_ok=True,
     )
+    os.makedirs(
+        os.path.join(
+            app.static_folder or "static",
+            "uploads",
+            "board_backgrounds",
+            "defaults",
+        ),
+        exist_ok=True,
+    )
+    _ensure_default_board_background_assets(app)
 
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
@@ -123,7 +176,7 @@ def create_app() -> Flask:
     login_manager.login_message_category = "warning"
 
     cors_origins_env = os.environ.get(
-        "CORS_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173"
+        "CORS_ORIGINS", "http://127.0.0.1:3000,http://localhost:3000"
     )
     cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
     CORS(
@@ -132,10 +185,11 @@ def create_app() -> Flask:
         supports_credentials=True,
     )
 
-    from .api import api_bp
+    from .api import API_BLUEPRINTS
     from .legacy_redirects import auth_bp, boards_bp, main_bp
 
-    app.register_blueprint(api_bp)
+    for blueprint in API_BLUEPRINTS:
+        app.register_blueprint(blueprint)
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
     app.register_blueprint(boards_bp)

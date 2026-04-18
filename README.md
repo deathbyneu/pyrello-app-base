@@ -1,90 +1,158 @@
 # Pyrello
 
-Mini Trello clone for group project.
+Mini Trello clone with a Flask API backend and a Next.js frontend.
 
-## Architecture (2 ports)
+## Current architecture
 
-- Backend API (Flask + SQLite): `http://127.0.0.1:5000`
-- Frontend app (static SPA): `http://127.0.0.1:5173`
-- Frontend talks to backend via `fetch` + `CORS` + session cookie.
+- Backend API: Flask + Flask-Login + Flask-SQLAlchemy
+- Database: SQLite at `instance/pyrello.db`
+- Frontend: Next.js 16 + React 19
+- Auth/session: Flask session cookie, frontend talks to backend with `fetch` + `credentials: "include"`
 
-## Tech stack
+## Project structure
 
-- Backend: Flask, Flask-Login, Flask-SQLAlchemy, Flask-Cors
-- Frontend: Vanilla JS + Tailwind CDN
-- Database: SQLite (`instance/pyrello.db`)
+```text
+app/
+  api/
+    auth.py
+    boards.py
+    common.py
+    dashboard.py
+    notifications.py
+    social.py
+    tasks.py
+  __init__.py
+  extensions.py
+  legacy_redirects.py
+  models.py
+  utils.py
+
+frontend/
+  public/
+    icons/
+  src/
+    app/
+    components/
+    lib/
+    styles/
+  package.json
+
+run.py
+run_frontend.py
+requirements.txt
+```
 
 ## Main features
 
 - Register / login / logout
-- Board workspace
-  - Creator is owner
-  - Public join or private board
-  - Owner can invite by username
-- Board work
-  - Owner and guest can create list/task/comment
-  - Owner can assign task
-  - Task detail modal + comments
-- Social
-  - Add friend by username
-  - Friend request accept/decline
-  - Board invite accept/decline
-- Notification system
-  - Unread badge
-  - Mark read / mark all read
+- Dashboard with board search
+- Create board, join public board, leave board, delete board
+- Friend request send / accept / decline
+- Board invite send / accept / decline
+- Board workspace with:
+  - list create / rename / reorder
+  - task create / edit / move / complete
+  - task comment
+  - task image attachment upload / delete
+  - board background image upload / reset
+- Notification list, unread badge, mark read / mark all read
 
-## Run
+## Run locally
 
-1. Install dependencies
+### 1. Install backend dependencies
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-2. Start backend (port 5000)
+### 2. Start backend
 
 ```bash
 python run.py
 ```
 
-3. Start frontend (port 5173) in another terminal
+Default backend URL:
+
+```text
+http://127.0.0.1:5000
+```
+
+### 3. Start frontend
+
+In another terminal:
 
 ```bash
 python run_frontend.py
 ```
 
-4. Open frontend
+`run_frontend.py` will install frontend dependencies automatically the first time if `frontend/node_modules` does not exist.
+
+Default frontend URL:
 
 ```text
-http://127.0.0.1:5173
+http://127.0.0.1:3000
 ```
 
-## CORS config
+### 4. Open the app
 
-Default allowed frontend origins:
+```text
+http://127.0.0.1:3000
+```
 
-- `http://127.0.0.1:5173`
-- `http://localhost:5173`
+## Frontend-only commands
 
-Override with environment variable:
+If you want to work directly inside the Next.js app:
 
 ```bash
-CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+cd frontend
+npm install
+npm run dev
 ```
 
-## API base
+Production build check:
 
-Frontend default API base:
+```bash
+cd frontend
+npm run build
+```
+
+## Environment variables
+
+### Backend
+
+- `BACKEND_HOST` default: `127.0.0.1`
+- `BACKEND_PORT` default: `5000`
+- `DATABASE_URL` optional override for SQLAlchemy
+- `SECRET_KEY` optional override for Flask secret
+- `CORS_ORIGINS` default:
+
+```text
+http://127.0.0.1:3000,http://localhost:3000
+```
+
+- `FRONTEND_URL` default:
+
+```text
+http://127.0.0.1:3000
+```
+
+`FRONTEND_URL` is used by Flask redirect routes like `/login`, `/dashboard`, and `/boards/<id>`.
+
+### Frontend
+
+- `FRONTEND_HOST` default: `127.0.0.1`
+- `FRONTEND_PORT` default: `3000`
+- `NEXT_PUBLIC_API_BASE_URL` optional override. When unset, the frontend derives the API base from the current browser hostname and backend port `5000`, for example:
 
 ```text
 http://127.0.0.1:5000/api
+http://localhost:5000/api
 ```
 
-## Optional ports
+Use `NEXT_PUBLIC_API_BASE_URL` if your backend is not running on the default host/port or hostname.
 
-- Backend:
-  - `BACKEND_HOST` (default `127.0.0.1`)
-  - `BACKEND_PORT` (default `5000`)
-- Frontend:
-  - `FRONTEND_HOST` (default `127.0.0.1`)
-  - `FRONTEND_PORT` (default `5173`)
+## Notes
+
+- Backend API contracts were kept the same while the Flask routes were split by domain.
+- Frontend was moved from a single-file hash SPA to a routed Next.js app.
+- Uploaded task attachments and board backgrounds are still served from Flask `static/uploads/...`.

@@ -6,3 +6,7 @@ __pycache__/
 .venv/
 venv/
 instance/
+frontend/.next/
+frontend/node_modules/
+node_modules/
+npm-debug.log*

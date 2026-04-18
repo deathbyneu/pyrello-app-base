@@ -1,0 +1,30 @@
+@import "tailwindcss";
+@import "../styles/legacy.css";
+@import "../styles/board.css";
+
+@theme inline {
+  --font-sans: var(--font-manrope);
+  --font-serif: var(--font-playfair);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #171717;
+  color: #b6c2cf;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

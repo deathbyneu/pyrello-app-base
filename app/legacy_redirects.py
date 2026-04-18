@@ -8,13 +8,13 @@ from flask_login import current_user, logout_user
 
 
 def _frontend_base_url() -> str:
-    return os.environ.get("FRONTEND_URL", "http://127.0.0.1:5173").rstrip("/")
+    return os.environ.get("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
 
 
 def _frontend_redirect(route: str, query_items: list[tuple[str, str]] | None = None):
     normalized_route = route if route.startswith("/") else f"/{route}"
     query_suffix = f"?{urlencode(query_items, doseq=True)}" if query_items else ""
-    return redirect(f"{_frontend_base_url()}/#{normalized_route}{query_suffix}")
+    return redirect(f"{_frontend_base_url()}{normalized_route}{query_suffix}")
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -48,7 +48,7 @@ main_bp = Blueprint("main", __name__)
 def index():
     if current_user.is_authenticated:
         return _frontend_redirect("/dashboard")
-    return _frontend_redirect("/login")
+    return _frontend_redirect("/")
 
 
 @main_bp.route("/dashboard")
