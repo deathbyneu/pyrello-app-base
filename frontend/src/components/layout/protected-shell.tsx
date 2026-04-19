@@ -34,6 +34,19 @@ type ProtectedShellContextValue = {
   bumpContentVersion: () => void;
 };
 
+const dropdownPanelBaseClass =
+  "absolute top-[calc(100%+8px)] rounded-xl border border-white/[0.12] bg-[linear-gradient(135deg,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0.03)_100%)] p-4 shadow-2xl backdrop-blur-[24px] backdrop-saturate-[180%] animate-[drop-in_0.12s_ease-out]";
+const fieldClass =
+  "w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] backdrop-blur-sm focus:border-white/20 focus:bg-white/[0.08]";
+const subtlePanelClass =
+  "rounded-md border border-white/10 bg-white/5 backdrop-blur-sm";
+const primaryButtonClass =
+  "rounded-md bg-[#579DFF] px-3 py-2 text-sm font-semibold text-[#091e42] hover:bg-[#85B8FF]";
+const successButtonClass =
+  "rounded bg-[#22A06B] px-2 py-1 text-xs font-semibold text-white hover:bg-[#1f8c5f]";
+const dangerButtonClass =
+  "rounded bg-[#ae2e24] px-2 py-1 text-xs font-semibold text-white hover:bg-[#933123]";
+
 const ProtectedShellContext =
   createContext<ProtectedShellContextValue | null>(null);
 
@@ -89,27 +102,20 @@ function CreateBoardMenu({
       <summary className="list-none rounded-md bg-[#579DFF] px-3 py-1.5 text-sm font-semibold text-[#091e42] hover:bg-[#85B8FF]">
         Create
       </summary>
-      <div
-        className="dropdown-panel absolute left-0 top-[calc(100%+8px)] w-[360px] rounded-xl border border-white/[0.12] p-4 shadow-2xl"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%)",
-          backdropFilter: "blur(24px) saturate(180%)",
-        }}
-      >
+      <div className={`${dropdownPanelBaseClass} left-0 w-[360px] origin-top-left`}>
         <h3 className="text-center text-sm font-semibold text-[#DEE4EA]">
           Create workspace
         </h3>
         <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
           <input
             required
-            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-sm"
+            className={fieldClass}
             maxLength={120}
             name="title"
             placeholder="Board title"
           />
           <textarea
-            className="w-full resize-none rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-sm"
+            className={`${fieldClass} resize-none`}
             maxLength={1000}
             name="description"
             placeholder="Description"
@@ -124,7 +130,7 @@ function CreateBoardMenu({
             Let everyone join this workspace
           </label>
           <button
-            className="w-full rounded-md bg-[#579DFF] px-3 py-2 text-sm font-semibold text-[#091e42] hover:bg-[#85B8FF] disabled:cursor-not-allowed disabled:opacity-70"
+            className={`w-full disabled:cursor-not-allowed disabled:opacity-70 ${primaryButtonClass}`}
             disabled={submitting}
           >
             {submitting ? "Creating..." : "Create board"}
@@ -175,27 +181,20 @@ function SocialMenu({
           </span>
         ) : null}
       </summary>
-      <div
-        className="dropdown-panel absolute right-0 top-[calc(100%+8px)] w-[380px] rounded-xl border border-white/[0.12] p-4 shadow-2xl"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%)",
-          backdropFilter: "blur(24px) saturate(180%)",
-        }}
-      >
+      <div className={`${dropdownPanelBaseClass} right-0 w-[380px] origin-top-right`}>
         <p className="text-xs font-semibold uppercase tracking-wide text-[#9FADBC]">
           Add friend
         </p>
         <form className="mt-2 flex gap-2" onSubmit={handleSubmit}>
           <input
             required
-            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/[0.08] backdrop-blur-sm"
+            className={fieldClass}
             name="username"
             onChange={(event) => setUsername(event.target.value)}
             placeholder="username"
             value={username}
           />
-          <button className="rounded-md bg-[#579DFF] px-3 py-2 text-sm font-semibold text-[#091e42] hover:bg-[#85B8FF]">
+          <button className={primaryButtonClass}>
             Send
           </button>
         </form>
@@ -209,21 +208,21 @@ function SocialMenu({
               summary.friend_requests.map((request) => (
                 <div
                   key={request.id}
-                  className="rounded-md border border-white/10 bg-white/5 p-2 backdrop-blur-sm"
+                  className={`${subtlePanelClass} p-2`}
                 >
                   <p className="text-sm text-[#DEE4EA]">
                     @{request.sender.username}
                   </p>
                   <div className="mt-2 flex gap-2">
                     <button
-                      className="rounded bg-[#22A06B] px-2 py-1 text-xs font-semibold text-white hover:bg-[#1f8c5f]"
+                      className={successButtonClass}
                       onClick={() => onAcceptFriendRequest(request.id)}
                       type="button"
                     >
                       Accept
                     </button>
                     <button
-                      className="rounded bg-[#ae2e24] px-2 py-1 text-xs font-semibold text-white hover:bg-[#933123]"
+                      className={dangerButtonClass}
                       onClick={() => onDeclineFriendRequest(request.id)}
                       type="button"
                     >
@@ -233,7 +232,7 @@ function SocialMenu({
                 </div>
               ))
             ) : (
-              <p className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#9FADBC] backdrop-blur-sm">
+              <p className={`${subtlePanelClass} px-3 py-2 text-sm text-[#9FADBC]`}>
                 No pending friend requests.
               </p>
             )}
@@ -249,7 +248,7 @@ function SocialMenu({
               summary.board_invites.map((invite) => (
                 <div
                   key={invite.id}
-                  className="rounded-md border border-white/10 bg-white/5 p-2 backdrop-blur-sm"
+                  className={`${subtlePanelClass} p-2`}
                 >
                   <p className="text-sm text-[#DEE4EA]">
                     @{invite.inviter.username} invited you to{" "}
@@ -257,14 +256,14 @@ function SocialMenu({
                   </p>
                   <div className="mt-2 flex gap-2">
                     <button
-                      className="rounded bg-[#22A06B] px-2 py-1 text-xs font-semibold text-white hover:bg-[#1f8c5f]"
+                      className={successButtonClass}
                       onClick={() => onAcceptBoardInvite(invite.id)}
                       type="button"
                     >
                       Accept
                     </button>
                     <button
-                      className="rounded bg-[#ae2e24] px-2 py-1 text-xs font-semibold text-white hover:bg-[#933123]"
+                      className={dangerButtonClass}
                       onClick={() => onDeclineBoardInvite(invite.id)}
                       type="button"
                     >
@@ -274,7 +273,7 @@ function SocialMenu({
                 </div>
               ))
             ) : (
-              <p className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-[#9FADBC] backdrop-blur-sm">
+              <p className={`${subtlePanelClass} px-3 py-2 text-sm text-[#9FADBC]`}>
                 No pending project invites.
               </p>
             )}
@@ -305,14 +304,7 @@ function NotificationsMenu({
           </span>
         ) : null}
       </summary>
-      <div
-        className="dropdown-panel absolute right-0 top-[calc(100%+8px)] w-[380px] rounded-xl border border-white/[0.12] p-4 shadow-2xl"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%)",
-          backdropFilter: "blur(24px) saturate(180%)",
-        }}
-      >
+      <div className={`${dropdownPanelBaseClass} right-0 w-[380px] origin-top-right`}>
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-[#DEE4EA]">Notifications</h3>
           <Link
@@ -329,7 +321,7 @@ function NotificationsMenu({
                 key={note.id}
                 className={`rounded-md border p-2 ${
                   note.is_read
-                    ? "border-white/10 bg-white/5 backdrop-blur-sm"
+                    ? subtlePanelClass
                     : "border-[#579DFF]/40 bg-[#1E3A5F]/45"
                 }`}
               >
@@ -363,7 +355,7 @@ function NotificationsMenu({
               </article>
             ))
           ) : (
-            <p className="rounded-md border border-white/10 bg-white/5 p-3 text-sm text-[#9FADBC] backdrop-blur-sm">
+            <p className={`${subtlePanelClass} p-3 text-sm text-[#9FADBC]`}>
               No notifications yet.
             </p>
           )}
@@ -392,14 +384,7 @@ function AccountMenu({
           {username.slice(0, 1).toUpperCase()}
         </span>
       </summary>
-      <div
-        className="dropdown-panel absolute right-0 top-[calc(100%+8px)] w-80 rounded-xl border border-white/[0.12] p-4 shadow-2xl"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%)",
-          backdropFilter: "blur(24px) saturate(180%)",
-        }}
-      >
+      <div className={`${dropdownPanelBaseClass} right-0 w-80 origin-top-right`}>
         <p className="text-xs font-semibold uppercase tracking-wide text-[#9FADBC]">
           Account
         </p>
@@ -710,14 +695,7 @@ export function ProtectedShell({ children }: { children: ReactNode }) {
                   {user.avatar_initial}
                 </span>
               </summary>
-              <div
-                className="dropdown-panel absolute right-0 top-[calc(100%+8px)] w-80 rounded-xl border border-white/[0.12] p-4 shadow-2xl"
-                style={{
-                  background:
-                    "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.03) 100%)",
-                  backdropFilter: "blur(24px) saturate(180%)",
-                }}
-              >
+              <div className={`${dropdownPanelBaseClass} right-0 w-80 origin-top-right`}>
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#9FADBC]">
                   Account
                 </p>

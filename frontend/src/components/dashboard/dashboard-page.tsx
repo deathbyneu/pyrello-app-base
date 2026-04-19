@@ -8,8 +8,70 @@ import { LoadingCard } from "@/components/common/loading-card";
 import { useProtectedShell } from "@/components/layout/protected-shell";
 import { useToast } from "@/components/providers/toast-provider";
 import { apiRequest } from "@/lib/api";
-import type { BoardInvite, BoardSummary, DashboardData } from "@/lib/types";
-import { boardCoverStyle, dashboardHref } from "@/lib/utils";
+import type { BoardInvite, BoardSummary, DashboardData, Membership } from "@/lib/types";
+import { boardCoverStyle, dashboardHref, memberRoleLabel } from "@/lib/utils";
+
+const sectionTitleClass = "text-2xl font-bold tracking-tight text-[#DEE4EA]";
+const singleLineClampClass = "overflow-hidden text-ellipsis whitespace-nowrap";
+const twoLineClampClass =
+  "overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]";
+const boardCardClass =
+  "overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.02)_100%)] shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-[20px] backdrop-saturate-[180%] transition hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_12px_40px_rgba(0,0,0,0.4)]";
+const glassPanelClass =
+  "rounded-xl border border-white/12 bg-[linear-gradient(135deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.02)_100%)] p-4 shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-[20px] backdrop-saturate-[180%]";
+const mutedEmptyClass =
+  "rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-[#9FADBC] backdrop-blur-sm";
+
+function DashboardSection({
+  title,
+  titleClassName = "",
+  children,
+}: {
+  title: string;
+  titleClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-8 first:mt-7">
+      <h3 className={`${sectionTitleClass} ${titleClassName}`.trim()}>{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function BoardMembershipCard({
+  href,
+  membership,
+  showRole,
+  footer,
+}: {
+  href: string;
+  membership: Membership;
+  showRole?: boolean;
+  footer?: string;
+}) {
+  return (
+    <Link className={boardCardClass} href={href}>
+      <div className="h-24 w-full" style={boardCoverStyle(membership.board)} />
+      <div className="space-y-1 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className={`${singleLineClampClass} font-semibold text-[#DEE4EA]`}>
+            {membership.board.title}
+          </p>
+          {showRole ? (
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold uppercase text-[#9FADBC]">
+              {memberRoleLabel(membership.role)}
+            </span>
+          ) : null}
+        </div>
+        <p className={`${twoLineClampClass} text-sm text-[#9FADBC]`}>
+          {membership.board.description || "No description"}
+        </p>
+        {footer ? <p className="pt-2 text-xs text-[#7e8b9d]">{footer}</p> : null}
+      </div>
+    </Link>
+  );
+}
 
 export function DashboardPage() {
   const router = useRouter();
@@ -142,7 +204,7 @@ export function DashboardPage() {
     <div className="mx-auto max-w-6xl">
       <form className="mb-4 md:hidden" onSubmit={handleSearchSubmit}>
         <input
-          className="h-9 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] focus:border-white/20 focus:bg-white/8 backdrop-blur-md"
+          className="h-9 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-[#DEE4EA] outline-none placeholder:text-[#7e8b9d] backdrop-blur-md focus:border-white/20 focus:bg-white/8"
           name="q"
           onChange={(event) => setSearchValue(event.target.value)}
           placeholder="Search your workspace"
@@ -159,97 +221,54 @@ export function DashboardPage() {
         </p>
       ) : null}
 
-      <section className="mt-7">
-        <h3 className="dashboard-heading text-2xl text-[#DEE4EA]">
-          Recently viewed
-        </h3>
+      <DashboardSection title="Recently viewed">
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {recentMemberships.length > 0 ? (
             recentMemberships.map((membership) => (
-              <Link
+              <BoardMembershipCard
                 key={`${membership.board.id}-${membership.role}`}
-                className="trello-board-card"
                 href={`/boards/${membership.board.id}`}
-              >
-                <div
-                  className="h-24 w-full"
-                  style={boardCoverStyle(membership.board)}
-                />
-                <div className="space-y-1 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="line-clamp-1 font-semibold text-[#DEE4EA]">
-                      {membership.board.title}
-                    </p>
-                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold uppercase text-[#9FADBC]">
-                      {membership.role}
-                    </span>
-                  </div>
-                  <p className="line-clamp-2 text-sm text-[#9FADBC]">
-                    {membership.board.description || "No description"}
-                  </p>
-                </div>
-              </Link>
+                membership={membership}
+                showRole
+              />
             ))
           ) : (
-            <p className="rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-[#9FADBC] backdrop-blur-sm sm:col-span-2 lg:col-span-3">
+            <p className={`${mutedEmptyClass} sm:col-span-2 lg:col-span-3`}>
               No boards yet. Use the Create button in the header.
             </p>
           )}
         </div>
-      </section>
+      </DashboardSection>
 
-      <section className="mt-8">
-        <h3 className="dashboard-heading text-xl tracking-wide text-[#DEE4EA]">
-          Your Workspaces
-        </h3>
+      <DashboardSection
+        title="Your Workspaces"
+        titleClassName="text-xl tracking-wide"
+      >
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {memberships.length > 0 ? (
             memberships.map((membership) => (
-              <Link
+              <BoardMembershipCard
                 key={`${membership.board.id}-${membership.joined_at}`}
-                className="trello-board-card"
                 href={`/boards/${membership.board.id}`}
-              >
-                <div
-                  className="h-24 w-full"
-                  style={boardCoverStyle(membership.board)}
-                />
-                <div className="space-y-1 p-3">
-                  <p className="line-clamp-1 font-semibold text-[#DEE4EA]">
-                    {membership.board.title}
-                  </p>
-                  <p className="line-clamp-2 text-sm text-[#9FADBC]">
-                    {membership.board.description || "No description"}
-                  </p>
-                  <p className="pt-2 text-xs text-[#7e8b9d]">
-                    {membership.board.allow_public_join
-                      ? "Public join on"
-                      : "Private board"}
-                  </p>
-                </div>
-              </Link>
+                membership={membership}
+                footer={
+                  membership.board.allow_public_join
+                    ? "Public join on"
+                    : "Private board"
+                }
+              />
             ))
           ) : (
-            <p className="rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-[#9FADBC] backdrop-blur-sm sm:col-span-2 lg:col-span-3">
+            <p className={`${mutedEmptyClass} sm:col-span-2 lg:col-span-3`}>
               You are not a member of any board yet.
             </p>
           )}
         </div>
-      </section>
+      </DashboardSection>
 
-      <section className="mt-8">
-        <h3 className="dashboard-heading text-xl tracking-wide text-[#DEE4EA]">
-          Others
-        </h3>
+      <DashboardSection title="Others" titleClassName="text-xl tracking-wide">
         <div className="mt-4 grid gap-6 lg:grid-cols-2">
-          <article
-            className="rounded-xl border border-white/12 p-4"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)",
-              backdropFilter: "blur(20px) saturate(180%)",
-            }}
-          >
+          <article className={glassPanelClass}>
             <h3 className="text-lg text-[#DEE4EA]">Board Invitations</h3>
             <div className="mt-3 space-y-2">
               {data.pending_board_invites.length > 0 ? (
@@ -260,20 +279,18 @@ export function DashboardPage() {
                   >
                     <p className="text-sm text-[#DEE4EA]">
                       @{invite.inviter.username} invited you to{" "}
-                      <span className="font-semibold">
-                        {invite.board.title}
-                      </span>
+                      <span className="font-semibold">{invite.board.title}</span>
                     </p>
                     <div className="mt-3 flex gap-2">
                       <button
-                        className="rounded bg-[#22A06B] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#1f8c5f]"
+                        className="rounded bg-[#22A06B] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1f8c5f]"
                         onClick={() => void handleAcceptInvite(invite.id)}
                         type="button"
                       >
                         Accept
                       </button>
                       <button
-                        className="rounded bg-[#ae2e24] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#933123]"
+                        className="rounded bg-[#ae2e24] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#933123]"
                         onClick={() => void handleDeclineInvite(invite.id)}
                         type="button"
                       >
@@ -283,21 +300,12 @@ export function DashboardPage() {
                   </div>
                 ))
               ) : (
-                <p className="rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-[#9FADBC] backdrop-blur-sm">
-                  No pending board invitations.
-                </p>
+                <p className={mutedEmptyClass}>No pending board invitations.</p>
               )}
             </div>
           </article>
 
-          <article
-            className="rounded-xl border border-white/12 p-4"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%)",
-              backdropFilter: "blur(20px) saturate(180%)",
-            }}
-          >
+          <article className={glassPanelClass}>
             <h3 className="text-lg text-[#DEE4EA]">Open Workspaces</h3>
             <p className="mt-1 text-sm text-[#9FADBC]">
               Boards where everyone can join.
@@ -309,14 +317,12 @@ export function DashboardPage() {
                     key={board.id}
                     className="rounded-md border border-white/10 bg-white/5 p-3 backdrop-blur-sm"
                   >
-                    <p className="font-semibold text-[#DEE4EA]">
-                      {board.title}
-                    </p>
+                    <p className="font-semibold text-[#DEE4EA]">{board.title}</p>
                     <p className="mt-1 text-sm text-[#9FADBC]">
                       Owner: @{board.owner_username}
                     </p>
                     <button
-                      className="mt-3 rounded bg-[#579DFF] px-3 py-1.5 text-xs font-semibold text-[#091e42] hover:bg-[#85B8FF]"
+                      className="mt-3 rounded bg-[#579DFF] px-3 py-1.5 text-xs font-semibold text-[#091e42] transition hover:bg-[#85B8FF]"
                       onClick={() => void handleJoinBoard(board.id)}
                       type="button"
                     >
@@ -325,14 +331,12 @@ export function DashboardPage() {
                   </div>
                 ))
               ) : (
-                <p className="rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm text-[#9FADBC] backdrop-blur-sm">
-                  No open workspaces found.
-                </p>
+                <p className={mutedEmptyClass}>No open workspaces found.</p>
               )}
             </div>
           </article>
         </div>
-      </section>
+      </DashboardSection>
     </div>
   );
 }

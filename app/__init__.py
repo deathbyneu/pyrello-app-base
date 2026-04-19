@@ -195,7 +195,18 @@ def create_app() -> Flask:
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
+        GEMINI_API_KEY="",
+        GEMINI_MODEL="gemini-2.5-flash",
     )
+    app.config.from_pyfile("config.py", silent=True)
+    app.config["GEMINI_API_KEY"] = str(
+        os.environ.get("GEMINI_API_KEY")
+        or os.environ.get("GOOGLE_API_KEY")
+        or app.config.get("GEMINI_API_KEY", "")
+    ).strip()
+    app.config["GEMINI_MODEL"] = str(
+        os.environ.get("GEMINI_MODEL") or app.config.get("GEMINI_MODEL", "gemini-2.5-flash")
+    ).strip()
 
     db.init_app(app)
     login_manager.init_app(app)

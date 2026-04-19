@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 
+import { BoardAiDraftModal } from "@/components/board/board-ai-draft-modal";
 import { AddListLane, BoardLane } from "@/components/board/board-lane";
 import { BoardFooter } from "@/components/board/board-footer";
 import { BoardTopbar } from "@/components/board/board-menus";
@@ -18,8 +19,15 @@ import { LoadingCard } from "@/components/common/loading-card";
 import { useProtectedShell } from "@/components/layout/protected-shell";
 import { useToast } from "@/components/providers/toast-provider";
 import { apiRequest, ApiError } from "@/lib/api";
-import type { BoardDetail, BoardList, Task } from "@/lib/types";
-import { boardShellStyle, getDueDateState } from "@/lib/utils";
+import type {
+  AiTaskDraft,
+  AiTaskDraftConfirmResponse,
+  AiTaskDraftResponse,
+  BoardDetail,
+  BoardList,
+  Task,
+} from "@/lib/types";
+import { boardCoverStyle, getDueDateState } from "@/lib/utils";
 
 type TaskDropTarget = {
   listId: number;
@@ -100,37 +108,49 @@ function BoardFiltersMenu({
     filters.timeline !== "all";
   const activeFilterCount = countActiveFilters(filters);
   const taskLabel = `${visibleTaskCount} matching task${visibleTaskCount === 1 ? "" : "s"}`;
+  const selectClass =
+    "w-full appearance-auto rounded-[14px] border border-white/10 bg-white/5 px-4 py-3 text-slate-100 outline-none transition focus:border-blue-500/40 focus:ring-4 focus:ring-blue-500/15";
+  const optionStyle = { color: "#0f172a", backgroundColor: "#ffffff" };
 
   return (
-    <div className="board-filters-toolbar">
-      <ExclusiveDetails className="board-panel board-filters-menu">
+    <div className="mb-4 flex justify-end max-md:justify-stretch">
+      <ExclusiveDetails className="relative">
         <summary
-          className={`board-action ${hasActiveFilters ? "board-action--primary" : ""}`}
+          className={`list-none inline-flex items-center gap-2 rounded-[14px] border px-4 py-3 text-sm transition [&::-webkit-details-marker]:hidden max-md:w-full max-md:justify-center ${
+            hasActiveFilters
+              ? "border-sky-400/30 bg-[rgba(37,99,235,0.22)] text-blue-100 hover:border-sky-400/40 hover:bg-[rgba(37,99,235,0.28)]"
+              : "border-white/12 bg-[rgba(8,12,18,0.5)] text-slate-100 hover:border-sky-400/35 hover:bg-[rgba(15,23,42,0.62)]"
+          }`}
         >
-          <Icon name="search" />
+          <Icon className="h-4 w-4" name="search" />
           <span>Filters</span>
           {activeFilterCount ? (
-            <span className="board-filters-menu__summary">
+            <span className="text-xs font-medium text-slate-300">
               {activeFilterCount} active
             </span>
           ) : null}
         </summary>
-        <div className="board-panel__popover board-filters-menu__popover">
-          <p className="board-panel__title">Task filters</p>
-          <p className="board-panel__helper">
+        <div className="absolute right-0 top-[calc(100%+0.7rem)] z-20 w-[24rem] max-w-[calc(100vw-1.25rem)] rounded-[22px] border border-white/10 bg-[rgba(8,12,18,0.84)] p-4 text-slate-100 shadow-[0_22px_52px_rgba(0,0,0,0.24)] backdrop-blur-[22px] backdrop-saturate-110">
+          <p className="m-0 text-sm font-semibold uppercase tracking-[0.08em] text-slate-400">
+            Task filters
+          </p>
+          <p className="mt-1 text-sm text-slate-400">
             {hasActiveFilters
               ? taskLabel
               : canEditContent
                 ? "Showing every task on this board."
                 : "Showing every task you can view."}
           </p>
-          <div className="board-panel__section board-filters-menu__grid">
-            <div className="board-filters-menu__group">
-              <label className="board-field__label" htmlFor="filter_assignee">
+          <div className="mt-4 grid gap-3">
+            <div className="rounded-[18px] border border-white/10 bg-[rgba(8,12,18,0.82)] p-3 shadow-[0_10px_22px_rgba(0,0,0,0.18)]">
+              <label
+                className="mb-2 block text-xs font-medium uppercase tracking-[0.08em] text-slate-400"
+                htmlFor="filter_assignee"
+              >
                 Assignee
               </label>
               <select
-                className="board-select"
+                className={selectClass}
                 id="filter_assignee"
                 onChange={(event) =>
                   onChangeFilters({
@@ -140,21 +160,32 @@ function BoardFiltersMenu({
                 }
                 value={filters.assigneeId}
               >
-                <option value="all">All assignees</option>
-                <option value="unassigned">Unassigned</option>
+                <option style={optionStyle} value="all">
+                  All assignees
+                </option>
+                <option style={optionStyle} value="unassigned">
+                  Unassigned
+                </option>
                 {boardData.members.map((member) => (
-                  <option key={member.user.id} value={member.user.id}>
+                  <option
+                    key={member.user.id}
+                    style={optionStyle}
+                    value={member.user.id}
+                  >
                     @{member.user.username}
                   </option>
                 ))}
               </select>
             </div>
-            <div className="board-filters-menu__group">
-              <label className="board-field__label" htmlFor="filter_priority">
+            <div className="rounded-[18px] border border-white/10 bg-[rgba(8,12,18,0.82)] p-3 shadow-[0_10px_22px_rgba(0,0,0,0.18)]">
+              <label
+                className="mb-2 block text-xs font-medium uppercase tracking-[0.08em] text-slate-400"
+                htmlFor="filter_priority"
+              >
                 Priority
               </label>
               <select
-                className="board-select"
+                className={selectClass}
                 id="filter_priority"
                 onChange={(event) =>
                   onChangeFilters({
@@ -164,18 +195,29 @@ function BoardFiltersMenu({
                 }
                 value={filters.priority}
               >
-                <option value="all">All priorities</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
+                <option style={optionStyle} value="all">
+                  All priorities
+                </option>
+                <option style={optionStyle} value="high">
+                  High
+                </option>
+                <option style={optionStyle} value="medium">
+                  Medium
+                </option>
+                <option style={optionStyle} value="low">
+                  Low
+                </option>
               </select>
             </div>
-            <div className="board-filters-menu__group">
-              <label className="board-field__label" htmlFor="filter_timeline">
+            <div className="rounded-[18px] border border-white/10 bg-[rgba(8,12,18,0.82)] p-3 shadow-[0_10px_22px_rgba(0,0,0,0.18)]">
+              <label
+                className="mb-2 block text-xs font-medium uppercase tracking-[0.08em] text-slate-400"
+                htmlFor="filter_timeline"
+              >
                 Timeline
               </label>
               <select
-                className="board-select"
+                className={selectClass}
                 id="filter_timeline"
                 onChange={(event) =>
                   onChangeFilters({
@@ -185,18 +227,28 @@ function BoardFiltersMenu({
                 }
                 value={filters.timeline}
               >
-                <option value="all">All due dates</option>
-                <option value="overdue">Overdue</option>
-                <option value="today">Due today</option>
-                <option value="upcoming">Upcoming</option>
-                <option value="none">No due date</option>
+                <option style={optionStyle} value="all">
+                  All due dates
+                </option>
+                <option style={optionStyle} value="overdue">
+                  Overdue
+                </option>
+                <option style={optionStyle} value="today">
+                  Due today
+                </option>
+                <option style={optionStyle} value="upcoming">
+                  Upcoming
+                </option>
+                <option style={optionStyle} value="none">
+                  No due date
+                </option>
               </select>
             </div>
           </div>
-          <div className="board-panel__section board-filters-menu__actions">
-            <span className="board-filters-menu__status">{taskLabel}</span>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
+            <span className="text-sm text-slate-400">{taskLabel}</span>
             <button
-              className="board-button board-button--ghost"
+              className="inline-flex items-center justify-center rounded-[14px] border border-white/12 bg-white/5 px-4 py-3 text-sm text-slate-100 transition hover:border-sky-400/35 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60 max-sm:w-full"
               disabled={!hasActiveFilters}
               onClick={() =>
                 onChangeFilters({
@@ -231,6 +283,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
   );
   const [editingListId, setEditingListId] = useState<number | null>(null);
   const [addListOpen, setAddListOpen] = useState(false);
+  const [aiDraftOpen, setAiDraftOpen] = useState(false);
   const [dragTaskId, setDragTaskId] = useState<number | null>(null);
   const [taskDropTarget, setTaskDropTarget] = useState<TaskDropTarget | null>(
     null,
@@ -545,6 +598,65 @@ export function BoardPage({ boardId }: { boardId: number }) {
     }
   };
 
+  const handleGenerateAiTaskDrafts = async (
+    brief: string,
+    taskCount: number,
+  ): Promise<AiTaskDraftResponse> => {
+    try {
+      return await apiRequest<AiTaskDraftResponse>(
+        `/boards/${boardId}/ai-task-drafts`,
+        {
+          method: "POST",
+          body: {
+            brief,
+            task_count: taskCount,
+          },
+        },
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not generate AI task drafts.";
+      showToast("error", message);
+      throw error;
+    }
+  };
+
+  const handleConfirmAiTaskDrafts = async (
+    drafts: AiTaskDraft[],
+  ): Promise<AiTaskDraftConfirmResponse> => {
+    try {
+      const result = await apiRequest<AiTaskDraftConfirmResponse>(
+        `/boards/${boardId}/ai-task-drafts/confirm`,
+        {
+          method: "POST",
+          body: {
+            drafts: drafts.map((draft) => ({
+              title: draft.title,
+              description: draft.description,
+              priority: draft.priority,
+              due_date: draft.due_date ?? "",
+              target_list_id: draft.target_list_id,
+            })),
+          },
+        },
+      );
+      showToast(
+        "success",
+        result.created_count === 1
+          ? "1 AI draft task created."
+          : `${result.created_count} AI draft tasks created.`,
+      );
+      setAiDraftOpen(false);
+      await refreshBoard();
+      return result;
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not create AI draft tasks.";
+      showToast("error", message);
+      throw error;
+    }
+  };
+
   const clearTaskDragState = () => {
     setDragTaskId(null);
     setTaskDropTarget(null);
@@ -561,7 +673,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
   ): { position: number; targetTaskId: number | null } => {
     const cards = Array.from(
       container.querySelectorAll<HTMLElement>(
-        ".board-card:not(.board-card--dragging):not(.board-card--composer)",
+        '[data-card-role="task"]:not([data-dragging="true"])',
       ),
     );
 
@@ -587,7 +699,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
   ): { position: number; targetLaneId: number | null } => {
     const lanes = Array.from(
       lanesRef.current?.querySelectorAll<HTMLElement>(
-        ".board-lane:not(.board-lane--dragging)",
+        "[data-board-lane]:not([data-dragging='true'])",
       ) ?? [],
     );
 
@@ -716,10 +828,12 @@ export function BoardPage({ boardId }: { boardId: number }) {
 
   if (!boardData) {
     return (
-      <div className="board-loading">
-        <section className="board-state">
-          <h1 className="board-state__title">Board unavailable</h1>
-          <p className="board-state__text">
+      <div className="grid min-h-[calc(100vh-3.5rem)] place-items-center p-8">
+        <section className="w-full max-w-md rounded-[28px] border border-white/10 bg-[rgba(13,19,30,0.72)] p-6 shadow-[0_22px_80px_rgba(0,0,0,0.26)] backdrop-blur-[18px]">
+          <h1 className="text-[1.3rem] font-extrabold text-slate-50">
+            Board unavailable
+          </h1>
+          <p className="mt-2 text-slate-400">
             We could not load this board right now.
           </p>
         </section>
@@ -742,19 +856,28 @@ export function BoardPage({ boardId }: { boardId: number }) {
   );
 
   return (
-    <div className="board-shell" style={boardShellStyle(boardData.board)}>
-      <div className="board-shell__inner">
+    <div
+      className="relative min-h-[calc(100vh-3.5rem)] overflow-hidden bg-[#f4f7fb] bg-cover bg-center bg-fixed text-slate-100"
+      style={boardCoverStyle(boardData.board)}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_18%,rgba(15,23,42,0.12),transparent_24%),linear-gradient(180deg,rgba(15,23,42,0.04),rgba(15,23,42,0.12))]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(15,23,42,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.035)_1px,transparent_1px)] bg-[size:120px_120px] opacity-[0.12] [mask-image:linear-gradient(to_bottom,rgba(0,0,0,0.28),transparent_80%)]" />
+      <div className="relative z-[1] min-h-[calc(100vh-3.5rem)]">
         <BoardTopbar
+          canOpenAiDraft={
+            boardData.ai_task_generation_enabled && canEditContent
+          }
           boardData={boardData}
           boardId={boardId}
           onDeleteBoard={handleDeleteBoard}
           onInviteUser={handleInviteUser}
           onLeaveBoard={handleLeaveBoard}
+          onOpenAiDraft={() => setAiDraftOpen(true)}
           onSaveSettings={handleSaveSettings}
           onUpdateMemberRole={handleUpdateMemberRole}
         />
 
-        <section className="board-canvas">
+        <section className="px-4 pt-4 pb-[6.5rem] max-md:px-4">
           <BoardFiltersMenu
             boardData={boardData}
             canEditContent={canEditContent}
@@ -763,11 +886,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
             visibleTaskCount={visibleTaskCount}
           />
           <div
-            className={`board-lanes ${
-              dragLaneId && laneDropTarget?.targetLaneId === null
-                ? "board-lanes--drop-tail"
-                : ""
-            }`}
+            className="flex min-h-[calc(100vh-14rem)] items-start gap-3 overflow-x-auto overflow-y-visible pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             onDragOver={handleLanesDragOver}
             onDrop={handleLaneDrop}
             onScroll={(event) => {
@@ -779,7 +898,6 @@ export function BoardPage({ boardId }: { boardId: number }) {
               <BoardLane
                 key={list.id}
                 activeComposerListId={activeComposerListId}
-                boardId={boardId}
                 canEditContent={canEditContent}
                 dragLaneId={dragLaneId}
                 dragTaskId={dragTaskId}
@@ -826,6 +944,9 @@ export function BoardPage({ boardId }: { boardId: number }) {
             {canEditContent ? (
               <AddListLane
                 addListOpen={addListOpen}
+                highlightDropTarget={
+                  Boolean(dragLaneId) && laneDropTarget?.targetLaneId === null
+                }
                 onCancel={() => setAddListOpen(false)}
                 onCreateList={handleCreateList}
                 onOpen={() => {
@@ -836,7 +957,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
               />
             ) : null}
             {hasActiveFilters && visibleTaskCount === 0 ? (
-              <div className="board-empty board-filter-empty">
+              <div className="w-[17rem] flex-none rounded-2xl border border-dashed border-white/10 bg-[rgba(8,12,18,0.82)] p-4 text-sm text-slate-400">
                 No tasks match the current filters.
               </div>
             ) : null}
@@ -857,6 +978,13 @@ export function BoardPage({ boardId }: { boardId: number }) {
           onDeleteAttachment={handleDeleteAttachment}
           onSaveTask={handleSaveTask}
           onUploadAttachment={handleUploadAttachment}
+        />
+        <BoardAiDraftModal
+          boardTitle={boardData.board.title}
+          onClose={() => setAiDraftOpen(false)}
+          onConfirm={handleConfirmAiTaskDrafts}
+          onGenerate={handleGenerateAiTaskDrafts}
+          open={aiDraftOpen}
         />
       </div>
     </div>

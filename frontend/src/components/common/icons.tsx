@@ -12,7 +12,8 @@ type IconName =
   | "friends"
   | "bell"
   | "search"
-  | "history";
+  | "history"
+  | "sparkles";
 
 type IconProps = SVGProps<SVGSVGElement> & {
   name: IconName;
@@ -20,7 +21,7 @@ type IconProps = SVGProps<SVGSVGElement> & {
 
 export function Icon({ name, className, ...props }: IconProps) {
   const baseProps = {
-    className: className ?? "board-icon",
+    className: className ?? "h-4 w-4 shrink-0",
     viewBox: "0 0 24 24",
     ...props,
   };
@@ -115,6 +116,14 @@ export function Icon({ name, className, ...props }: IconProps) {
           <path d="M3 12a9 9 0 1 0 3-6.7" />
           <path d="M3 4v5h5" />
           <path d="M12 7v5l3 2" />
+        </svg>
+      );
+    case "sparkles":
+      return (
+        <svg {...baseProps} fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z" />
+          <path d="M19 3l.8 1.9L21.7 6l-1.9.8L19 8.7l-.8-1.9L16.3 6l1.9-.8L19 3z" />
+          <path d="M5 15l1.1 2.4L8.5 18.5l-2.4 1.1L5 22l-1.1-2.4L1.5 18.5l2.4-1.1L5 15z" />
         </svg>
       );
     default:

@@ -6,6 +6,7 @@ from flask import Blueprint, request
 from flask_login import current_user
 from sqlalchemy import func
 
+from ..ai_tasks import generate_board_task_drafts, is_ai_task_generation_enabled
 from ..board_backgrounds import pick_random_default_board_background
 from ..extensions import db
 from ..models import Board, BoardInvite, BoardList, BoardMember, Task, TaskAttachment, User
@@ -18,9 +19,12 @@ from .common import (
     _board_background_dir,
     _can_edit_content,
     _can_manage_members,
+    _create_task,
     _delete_file_if_exists,
     _is_board_member,
     _move_list_to_position,
+    _normalize_task_priority,
+    _parse_due_date,
     _payload,
     _create_board_activity,
     _remove_attachment_file,
@@ -167,6 +171,132 @@ def api_board_detail(board_id: int):
 
     selected_task_id = request.args.get("task_id", type=int)
     return _api_ok(_serialize_board_detail(board, member, selected_task_id))
+
+
+@api_boards_bp.post("/boards/<int:board_id>/ai-task-drafts")
+@_api_login_required
+def api_generate_ai_task_drafts(board_id: int):
+    board = db.session.get(Board, board_id)
+    if board is None:
+        return _api_error("Board not found.", 404)
+
+    member = _require_board_member(board)
+    if member is None:
+        return _api_error("You are not a board member.", 403)
+    if not _can_edit_content(member):
+        return _api_error("Your role only allows viewing this board.", 403)
+    if not is_ai_task_generation_enabled():
+        return _api_error("AI task generation is not configured on the server.", 503)
+
+    payload = _payload()
+    brief = str(payload.get("brief", "")).strip()
+    task_count = payload.get("task_count")
+    if not brief:
+        return _api_error("Project brief is required.")
+
+    normalized_task_count = None
+    if task_count is not None and str(task_count).strip() != "":
+        try:
+            normalized_task_count = int(task_count)
+        except (TypeError, ValueError):
+            return _api_error("Task count must be a number.")
+
+    try:
+        draft_payload = generate_board_task_drafts(
+            board,
+            brief=brief,
+            task_count=normalized_task_count,
+        )
+    except ValueError as error:
+        return _api_error(str(error))
+    except RuntimeError as error:
+        return _api_error(str(error), 502)
+
+    return _api_ok(draft_payload, "AI task draft generated.")
+
+
+@api_boards_bp.post("/boards/<int:board_id>/ai-task-drafts/confirm")
+@_api_login_required
+def api_confirm_ai_task_drafts(board_id: int):
+    board = db.session.get(Board, board_id)
+    if board is None:
+        return _api_error("Board not found.", 404)
+
+    member = _require_board_member(board)
+    if member is None:
+        return _api_error("You are not a board member.", 403)
+    if not _can_edit_content(member):
+        return _api_error("Your role only allows viewing this board.", 403)
+
+    payload = _payload()
+    raw_drafts = payload.get("drafts")
+    if not isinstance(raw_drafts, list) or not raw_drafts:
+        return _api_error("Select at least one draft task to create.")
+    if len(raw_drafts) > 20:
+        return _api_error("You can only confirm up to 20 draft tasks at once.")
+
+    board_lists_by_id = {board_list.id: board_list for board_list in board.lists}
+    created_tasks = []
+
+    for raw_draft in raw_drafts:
+        if not isinstance(raw_draft, dict):
+            return _api_error("Draft task format is invalid.")
+
+        title = " ".join(str(raw_draft.get("title", "")).split())[:200].strip()
+        if not title:
+            return _api_error("Each draft task needs a title.")
+
+        description = str(raw_draft.get("description", "")).strip()[:4000]
+        priority = _normalize_task_priority(raw_draft.get("priority"))
+
+        try:
+            due_date = _parse_due_date(raw_draft.get("due_date"))
+        except ValueError as error:
+            return _api_error(str(error))
+
+        target_list_id = raw_draft.get("target_list_id")
+        try:
+            target_list_id_int = int(target_list_id)
+        except (TypeError, ValueError):
+            return _api_error("Each draft task needs a valid target list.")
+
+        board_list = board_lists_by_id.get(target_list_id_int)
+        if board_list is None:
+            return _api_error("Draft task points to a list outside this board.")
+
+        task = _create_task(
+            board,
+            board_list,
+            current_user,
+            title=title,
+            description=description,
+            priority=priority,
+            due_date=due_date,
+            record_activity=False,
+        )
+        created_tasks.append(task)
+
+    created_count = len(created_tasks)
+    _create_board_activity(
+        board,
+        (
+            f"{current_user.username} created {created_count} AI draft task."
+            if created_count == 1
+            else f"{current_user.username} created {created_count} AI draft tasks."
+        ),
+        actor=current_user,
+        event_type="task_bulk_created",
+    )
+
+    db.session.commit()
+    return _api_ok(
+        {
+            "created_count": created_count,
+            "created_tasks": [_serialize_task(task) for task in created_tasks],
+        },
+        "Draft tasks created.",
+        201,
+    )
 
 
 @api_boards_bp.patch("/boards/<int:board_id>")

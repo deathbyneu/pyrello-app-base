@@ -8,10 +8,11 @@ from typing import Any
 
 from flask import current_app, jsonify, request
 from flask_login import current_user
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from werkzeug.utils import secure_filename
 
 from ..board_backgrounds import is_default_board_background
+from ..ai_tasks import is_ai_task_generation_enabled
 from ..extensions import db
 from ..models import (
     Board,
@@ -27,6 +28,7 @@ from ..models import (
     TaskComment,
     User,
 )
+from ..utils import board_link, create_notification
 
 
 DONE_LIST_TITLES = {"done", "complete", "completed"}
@@ -233,6 +235,65 @@ def _create_board_activity(
     )
     db.session.add(activity)
     return activity
+
+
+def _create_task(
+    board: Board,
+    board_list: BoardList,
+    creator: User,
+    *,
+    title: str,
+    description: str = "",
+    priority: str = "medium",
+    due_date: date | None = None,
+    assignee_id: int | None = None,
+    record_activity: bool = True,
+) -> Task:
+    max_position = (
+        db.session.query(func.max(Task.position))
+        .filter(Task.list_id == board_list.id)
+        .scalar()
+    )
+    next_position = 0 if max_position is None else max_position + 1
+
+    task = Task(
+        board_id=board.id,
+        list_id=board_list.id,
+        creator_id=creator.id,
+        title=title,
+        description=description,
+        priority=_normalize_task_priority(priority),
+        due_date=due_date,
+        position=next_position,
+    )
+    db.session.add(task)
+    db.session.flush()
+
+    if assignee_id is not None:
+        assignee_member = BoardMember.query.filter_by(
+            board_id=board.id,
+            user_id=assignee_id,
+        ).first()
+        if assignee_member:
+            task.assignee_id = assignee_id
+            create_notification(
+                user_id=assignee_id,
+                category="task_assignment",
+                message=f"You were assigned task '{task.title}' in board {board.title}.",
+                link=board_link(board.id, task.id),
+            )
+
+    if record_activity:
+        _create_board_activity(
+            board,
+            f"{creator.username} created task '{task.title}' in {board_list.title}.",
+            actor=creator,
+            event_type="task_created",
+            task=task,
+            board_list=board_list,
+        )
+
+    return task
 
 
 def _serialize_attachment(attachment: TaskAttachment) -> dict[str, Any]:
@@ -527,6 +588,7 @@ def _serialize_board_detail(
     return {
         "board": _serialize_board_summary(board),
         "member_role": normalized_role,
+        "ai_task_generation_enabled": is_ai_task_generation_enabled(),
         "permissions": _permissions_payload(member),
         "can_manage_board": _can_manage_board(member),
         "members": [

@@ -2,11 +2,9 @@ from __future__ import annotations
 
 from flask import Blueprint, request
 from flask_login import current_user
-from sqlalchemy import func
 
 from ..extensions import db
-from ..models import Board, BoardList, BoardMember, Task, TaskAttachment, TaskComment
-from ..utils import board_link, create_notification
+from ..models import Board, BoardList, Task, TaskAttachment, TaskComment
 from .common import (
     _api_error,
     _api_login_required,
@@ -16,6 +14,7 @@ from .common import (
     _can_edit_content,
     _can_upload_attachments,
     _create_board_activity,
+    _create_task,
     _move_task_to_position,
     _normalize_task_priority,
     _parse_due_date,
@@ -78,48 +77,20 @@ def api_create_task(board_id: int, list_id: int):
     if not title:
         return _api_error("Task title is required.")
 
-    max_position = (
-        db.session.query(func.max(Task.position))
-        .filter(Task.list_id == board_list.id)
-        .scalar()
-    )
-    next_position = 0 if max_position is None else max_position + 1
+    assignee_id = payload.get("assignee_id")
+    assignee_id_int = None
+    if assignee_id is not None and str(assignee_id).strip() != "":
+        assignee_id_int = int(assignee_id)
 
-    task = Task(
-        board_id=board.id,
-        list_id=board_list.id,
-        creator_id=current_user.id,
+    task = _create_task(
+        board,
+        board_list,
+        current_user,
         title=title,
         description=description,
         priority=priority,
         due_date=due_date,
-        position=next_position,
-    )
-    db.session.add(task)
-    db.session.flush()
-
-    assignee_id = payload.get("assignee_id")
-    if assignee_id is not None and str(assignee_id).strip() != "":
-        assignee_id_int = int(assignee_id)
-        assignee_member = BoardMember.query.filter_by(
-            board_id=board.id, user_id=assignee_id_int
-        ).first()
-        if assignee_member:
-            task.assignee_id = assignee_id_int
-            create_notification(
-                user_id=assignee_id_int,
-                category="task_assignment",
-                message=f"You were assigned task '{task.title}' in board {board.title}.",
-                link=board_link(board.id, task.id),
-            )
-
-    _create_board_activity(
-        board,
-        f"{current_user.username} created task '{task.title}' in {board_list.title}.",
-        actor=current_user,
-        event_type="task_created",
-        task=task,
-        board_list=board_list,
+        assignee_id=assignee_id_int,
     )
 
     db.session.commit()

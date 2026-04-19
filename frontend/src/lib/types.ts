@@ -133,6 +133,7 @@ export type BoardList = {
 export type BoardDetail = {
   board: BoardSummary;
   member_role: string;
+  ai_task_generation_enabled: boolean;
   permissions: BoardPermissions;
   can_manage_board: boolean;
   members: BoardMember[];
@@ -142,6 +143,27 @@ export type BoardDetail = {
   activities: BoardActivity[];
   lists: BoardList[];
   selected_task: Task | null;
+};
+
+export type AiTaskDraft = {
+  id: string;
+  title: string;
+  description: string;
+  priority: "low" | "medium" | "high";
+  due_date: string | null;
+  target_list_id: number;
+  target_list_title: string;
+  reason: string;
+};
+
+export type AiTaskDraftResponse = {
+  summary: string;
+  drafts: AiTaskDraft[];
+};
+
+export type AiTaskDraftConfirmResponse = {
+  created_count: number;
+  created_tasks: Task[];
 };
 
 export type DashboardData = {

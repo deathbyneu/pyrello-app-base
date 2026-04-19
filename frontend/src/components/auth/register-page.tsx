@@ -10,6 +10,11 @@ import { useSession } from "@/components/providers/session-provider";
 import { useToast } from "@/components/providers/toast-provider";
 import { apiRequest } from "@/lib/api";
 
+const authInputClass =
+  "w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm transition focus:border-[#85B8FF] focus:ring-4 focus:ring-[#579DFF]/15";
+const authSubmitClass =
+  "w-full rounded-xl bg-[#579DFF] px-3 py-2.5 font-semibold text-[#091e42] shadow-lg shadow-[#579DFF]/25 transition hover:bg-[#85B8FF] disabled:cursor-not-allowed disabled:opacity-70";
+
 export function RegisterPage() {
   const router = useRouter();
   const { status, refreshSession } = useSession();
@@ -79,7 +84,7 @@ export function RegisterPage() {
           </label>
           <input
             required
-            className="auth-input w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm focus:border-[#85B8FF]"
+            className={authInputClass}
             id="register_username"
             maxLength={40}
             minLength={3}
@@ -95,7 +100,7 @@ export function RegisterPage() {
           </label>
           <input
             required
-            className="auth-input w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm focus:border-[#85B8FF]"
+            className={authInputClass}
             id="register_password"
             minLength={6}
             name="password"
@@ -111,7 +116,7 @@ export function RegisterPage() {
           </label>
           <input
             required
-            className="auth-input w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm focus:border-[#85B8FF]"
+            className={authInputClass}
             id="register_confirm_password"
             minLength={6}
             name="confirm_password"
@@ -119,7 +124,7 @@ export function RegisterPage() {
           />
         </div>
         <button
-          className="auth-submit w-full rounded-xl bg-[#579DFF] px-3 py-2.5 font-semibold text-[#091e42] shadow-lg shadow-[#579DFF]/25 hover:bg-[#85B8FF] disabled:cursor-not-allowed disabled:opacity-70"
+          className={authSubmitClass}
           disabled={submitting}
         >
           {submitting ? "Creating account..." : "Register"}

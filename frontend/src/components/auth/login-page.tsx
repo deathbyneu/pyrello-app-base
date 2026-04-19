@@ -10,6 +10,11 @@ import { useSession } from "@/components/providers/session-provider";
 import { useToast } from "@/components/providers/toast-provider";
 import { apiRequest } from "@/lib/api";
 
+const authInputClass =
+  "w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm transition focus:border-[#85B8FF] focus:ring-4 focus:ring-[#579DFF]/15";
+const authSubmitClass =
+  "w-full rounded-xl bg-[#579DFF] px-3 py-2.5 font-semibold text-[#091e42] shadow-lg shadow-[#579DFF]/25 transition hover:bg-[#85B8FF] disabled:cursor-not-allowed disabled:opacity-70";
+
 export function LoginPage() {
   const router = useRouter();
   const { status, refreshSession } = useSession();
@@ -78,7 +83,7 @@ export function LoginPage() {
           </label>
           <input
             required
-            className="auth-input w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm focus:border-[#85B8FF]"
+            className={authInputClass}
             id="login_username"
             name="username"
           />
@@ -92,14 +97,14 @@ export function LoginPage() {
           </label>
           <input
             required
-            className="auth-input w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-[#DEE4EA] outline-none backdrop-blur-sm focus:border-[#85B8FF]"
+            className={authInputClass}
             id="login_password"
             name="password"
             type="password"
           />
         </div>
         <button
-          className="auth-submit w-full rounded-xl bg-[#579DFF] px-3 py-2.5 font-semibold text-[#091e42] shadow-lg shadow-[#579DFF]/25 hover:bg-[#85B8FF] disabled:cursor-not-allowed disabled:opacity-70"
+          className={authSubmitClass}
           disabled={submitting}
         >
           {submitting ? "Logging in..." : "Login"}
