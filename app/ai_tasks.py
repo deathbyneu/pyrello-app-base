@@ -33,6 +33,7 @@ def generate_board_task_drafts(
     brief: str,
     task_count: int | None = None,
 ) -> dict[str, Any]:
+    # Keep the draft pass deterministic enough for review, not free-form chat.
     cleaned_brief = " ".join(str(brief or "").split())
     if not cleaned_brief:
         raise ValueError("Project brief is required.")
@@ -111,6 +112,7 @@ def _draft_prompt(
     brief: str,
     task_count: int,
 ) -> str:
+    # The prompt is list-aware so generated work drops into the board's real workflow.
     list_names = ", ".join(board_list.title for board_list in board_lists)
     board_description = board.description.strip() or "No board description provided."
 
@@ -160,6 +162,7 @@ def _call_gemini_api(payload: dict[str, Any]) -> dict[str, Any]:
 
     last_error: RuntimeError | None = None
     for model_name in model_candidates:
+        # Try the configured model first, then fall back without changing the UX contract.
         request_url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
             f"{model_name}:generateContent?{urllib_parse.urlencode({'key': api_key})}"
@@ -255,6 +258,7 @@ def _normalize_ai_task_draft(
     if not isinstance(raw_task, dict):
         raise RuntimeError("AI task draft format is invalid.")
 
+    # Never trust the model's raw list name; remap it back onto a real board list.
     fallback_list = board_lists[0]
     target_list = _match_board_list(
         board_lists,

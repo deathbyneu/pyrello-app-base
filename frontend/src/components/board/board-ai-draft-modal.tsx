@@ -103,6 +103,7 @@ export function BoardAiDraftModal({
     setIsGenerating(true);
     setError("");
     try {
+      // Regeneration should replace the working set so review stays explicit.
       const payload = await onGenerate(cleanedBrief, taskCount);
       setSummary(payload.summary);
       setDrafts(payload.drafts);
@@ -127,6 +128,7 @@ export function BoardAiDraftModal({
     setIsConfirming(true);
     setError("");
     try {
+      // Only the checked drafts cross the line into persisted board tasks.
       await onConfirm(selectedDrafts);
       onClose();
     } catch (cause) {
@@ -270,6 +272,7 @@ export function BoardAiDraftModal({
             ) : null}
 
             {drafts.length ? (
+              // The preview pane gets its own scroll region so the confirm action never drops off-screen.
               <div className="mt-4 max-h-[30rem] space-y-3 overflow-y-auto pr-1">
                 {drafts.map((draft) => {
                   const checked = selectedIds[draft.id] !== false;

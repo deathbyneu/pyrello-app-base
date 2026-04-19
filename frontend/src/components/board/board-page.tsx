@@ -603,6 +603,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
     taskCount: number,
   ): Promise<AiTaskDraftResponse> => {
     try {
+      // AI stays behind the board API so the provider key never touches the client bundle.
       return await apiRequest<AiTaskDraftResponse>(
         `/boards/${boardId}/ai-task-drafts`,
         {
@@ -625,6 +626,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
     drafts: AiTaskDraft[],
   ): Promise<AiTaskDraftConfirmResponse> => {
     try {
+      // Re-send only the normalized draft fields the server is willing to persist.
       const result = await apiRequest<AiTaskDraftConfirmResponse>(
         `/boards/${boardId}/ai-task-drafts/confirm`,
         {

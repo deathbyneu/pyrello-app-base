@@ -156,3 +156,9 @@ Use `NEXT_PUBLIC_API_BASE_URL` if your backend is not running on the default hos
 - Backend API contracts were kept the same while the Flask routes were split by domain.
 - Frontend was moved from a single-file hash SPA to a routed Next.js app.
 - Uploaded task attachments and board backgrounds are still served from Flask `static/uploads/...`.
+
+## Credit
+
+Primary developer: vytrieulemustdie/meshsh
+
+Original implementation and architecture by vytrieulemustdie/meshsh

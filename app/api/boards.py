@@ -194,6 +194,7 @@ def api_generate_ai_task_drafts(board_id: int):
     if not brief:
         return _api_error("Project brief is required.")
 
+    # Draft generation is review-first on purpose; nothing is persisted here.
     normalized_task_count = None
     if task_count is not None and str(task_count).strip() != "":
         try:
@@ -235,6 +236,7 @@ def api_confirm_ai_task_drafts(board_id: int):
     if len(raw_drafts) > 20:
         return _api_error("You can only confirm up to 20 draft tasks at once.")
 
+    # Confirm uses the same creation path as manual tasks so activity/order stay consistent.
     board_lists_by_id = {board_list.id: board_list for board_list in board.lists}
     created_tasks = []
 
