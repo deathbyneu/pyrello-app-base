@@ -12,6 +12,7 @@ from .common import (
     _api_login_required,
     _api_ok,
     _clean_username,
+    _create_board_activity,
     _serialize_board_invite,
     _serialize_friend_request,
     _utcnow,
@@ -144,7 +145,7 @@ def api_accept_board_invite(invite_id: int):
             BoardMember(
                 board_id=invite.board_id,
                 user_id=current_user.id,
-                role="guest",
+                role="editor",
             )
         )
 
@@ -153,6 +154,12 @@ def api_accept_board_invite(invite_id: int):
         category="board_invite",
         message=f"{current_user.username} accepted your invite to board {invite.board.title}.",
         link=board_link(invite.board_id),
+    )
+    _create_board_activity(
+        invite.board,
+        f"{current_user.username} accepted an invitation to the board.",
+        actor=current_user,
+        event_type="member_joined",
     )
     db.session.commit()
     return _api_ok(_serialize_board_invite(invite), "Invitation accepted.")
@@ -176,6 +183,12 @@ def api_decline_board_invite(invite_id: int):
         category="board_invite",
         message=f"{current_user.username} declined your invite to board {invite.board.title}.",
         link=board_link(invite.board_id),
+    )
+    _create_board_activity(
+        invite.board,
+        f"{current_user.username} declined an invitation to the board.",
+        actor=current_user,
+        event_type="invite_declined",
     )
     db.session.commit()
     return _api_ok(_serialize_board_invite(invite), "Invitation declined.")

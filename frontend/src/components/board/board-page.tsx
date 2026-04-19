@@ -12,12 +12,14 @@ import { AddListLane, BoardLane } from "@/components/board/board-lane";
 import { BoardFooter } from "@/components/board/board-footer";
 import { BoardTopbar } from "@/components/board/board-menus";
 import { TaskModal } from "@/components/board/task-modal";
+import { ExclusiveDetails } from "@/components/common/exclusive-details";
+import { Icon } from "@/components/common/icons";
 import { LoadingCard } from "@/components/common/loading-card";
 import { useProtectedShell } from "@/components/layout/protected-shell";
 import { useToast } from "@/components/providers/toast-provider";
 import { apiRequest, ApiError } from "@/lib/api";
-import type { BoardDetail } from "@/lib/types";
-import { boardShellStyle } from "@/lib/utils";
+import type { BoardDetail, BoardList, Task } from "@/lib/types";
+import { boardShellStyle, getDueDateState } from "@/lib/utils";
 
 type TaskDropTarget = {
   listId: number;
@@ -29,6 +31,190 @@ type LaneDropTarget = {
   position: number;
   targetLaneId: number | null;
 };
+
+type BoardTaskFilters = {
+  assigneeId: string;
+  priority: string;
+  timeline: string;
+};
+
+function taskMatchesFilters(task: Task, filters: BoardTaskFilters) {
+  if (filters.assigneeId === "unassigned" && task.assignee) {
+    return false;
+  }
+  if (
+    filters.assigneeId !== "all" &&
+    filters.assigneeId !== "unassigned" &&
+    String(task.assignee?.id ?? "") !== filters.assigneeId
+  ) {
+    return false;
+  }
+
+  if (filters.priority !== "all" && task.priority !== filters.priority) {
+    return false;
+  }
+
+  const dueState = getDueDateState(task.due_date);
+  if (filters.timeline === "overdue" && dueState !== "overdue") {
+    return false;
+  }
+  if (filters.timeline === "today" && dueState !== "today") {
+    return false;
+  }
+  if (filters.timeline === "upcoming" && dueState !== "upcoming") {
+    return false;
+  }
+  if (filters.timeline === "none" && dueState !== "none") {
+    return false;
+  }
+
+  return true;
+}
+
+function countActiveFilters(filters: BoardTaskFilters) {
+  let count = 0;
+
+  if (filters.assigneeId !== "all") count += 1;
+  if (filters.priority !== "all") count += 1;
+  if (filters.timeline !== "all") count += 1;
+
+  return count;
+}
+
+function BoardFiltersMenu({
+  boardData,
+  canEditContent,
+  filters,
+  visibleTaskCount,
+  onChangeFilters,
+}: {
+  boardData: BoardDetail;
+  canEditContent: boolean;
+  filters: BoardTaskFilters;
+  visibleTaskCount: number;
+  onChangeFilters: (nextFilters: BoardTaskFilters) => void;
+}) {
+  const hasActiveFilters =
+    filters.assigneeId !== "all" ||
+    filters.priority !== "all" ||
+    filters.timeline !== "all";
+  const activeFilterCount = countActiveFilters(filters);
+  const taskLabel = `${visibleTaskCount} matching task${visibleTaskCount === 1 ? "" : "s"}`;
+
+  return (
+    <div className="board-filters-toolbar">
+      <ExclusiveDetails className="board-panel board-filters-menu">
+        <summary
+          className={`board-action ${hasActiveFilters ? "board-action--primary" : ""}`}
+        >
+          <Icon name="search" />
+          <span>Filters</span>
+          {activeFilterCount ? (
+            <span className="board-filters-menu__summary">
+              {activeFilterCount} active
+            </span>
+          ) : null}
+        </summary>
+        <div className="board-panel__popover board-filters-menu__popover">
+          <p className="board-panel__title">Task filters</p>
+          <p className="board-panel__helper">
+            {hasActiveFilters
+              ? taskLabel
+              : canEditContent
+                ? "Showing every task on this board."
+                : "Showing every task you can view."}
+          </p>
+          <div className="board-panel__section board-filters-menu__grid">
+            <div className="board-filters-menu__group">
+              <label className="board-field__label" htmlFor="filter_assignee">
+                Assignee
+              </label>
+              <select
+                className="board-select"
+                id="filter_assignee"
+                onChange={(event) =>
+                  onChangeFilters({
+                    ...filters,
+                    assigneeId: event.target.value,
+                  })
+                }
+                value={filters.assigneeId}
+              >
+                <option value="all">All assignees</option>
+                <option value="unassigned">Unassigned</option>
+                {boardData.members.map((member) => (
+                  <option key={member.user.id} value={member.user.id}>
+                    @{member.user.username}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="board-filters-menu__group">
+              <label className="board-field__label" htmlFor="filter_priority">
+                Priority
+              </label>
+              <select
+                className="board-select"
+                id="filter_priority"
+                onChange={(event) =>
+                  onChangeFilters({
+                    ...filters,
+                    priority: event.target.value,
+                  })
+                }
+                value={filters.priority}
+              >
+                <option value="all">All priorities</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+            <div className="board-filters-menu__group">
+              <label className="board-field__label" htmlFor="filter_timeline">
+                Timeline
+              </label>
+              <select
+                className="board-select"
+                id="filter_timeline"
+                onChange={(event) =>
+                  onChangeFilters({
+                    ...filters,
+                    timeline: event.target.value,
+                  })
+                }
+                value={filters.timeline}
+              >
+                <option value="all">All due dates</option>
+                <option value="overdue">Overdue</option>
+                <option value="today">Due today</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="none">No due date</option>
+              </select>
+            </div>
+          </div>
+          <div className="board-panel__section board-filters-menu__actions">
+            <span className="board-filters-menu__status">{taskLabel}</span>
+            <button
+              className="board-button board-button--ghost"
+              disabled={!hasActiveFilters}
+              onClick={() =>
+                onChangeFilters({
+                  assigneeId: "all",
+                  priority: "all",
+                  timeline: "all",
+                })
+              }
+              type="button"
+            >
+              Clear filters
+            </button>
+          </div>
+        </div>
+      </ExclusiveDetails>
+    </div>
+  );
+}
 
 export function BoardPage({ boardId }: { boardId: number }) {
   const router = useRouter();
@@ -53,6 +239,11 @@ export function BoardPage({ boardId }: { boardId: number }) {
   const [laneDropTarget, setLaneDropTarget] = useState<LaneDropTarget | null>(
     null,
   );
+  const [filters, setFilters] = useState<BoardTaskFilters>({
+    assigneeId: "all",
+    priority: "all",
+    timeline: "all",
+  });
 
   const loadBoard = useCallback(
     async (selectedTaskId?: string | null) => {
@@ -127,6 +318,21 @@ export function BoardPage({ boardId }: { boardId: number }) {
     }
   };
 
+  const handleUpdateMemberRole = async (userId: number, role: string) => {
+    try {
+      await apiRequest(`/boards/${boardId}/members/${userId}/role`, {
+        method: "PATCH",
+        body: { role },
+      });
+      showToast("success", "Member role updated.");
+      await refreshBoard();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to update member role.";
+      showToast("error", message);
+    }
+  };
+
   const handleSaveSettings = async (formData: FormData) => {
     try {
       await apiRequest(`/boards/${boardId}`, {
@@ -181,6 +387,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
   };
 
   const handleCreateList = async (title: string) => {
+    if (!canEditContent) return;
     try {
       await apiRequest(`/boards/${boardId}/lists`, {
         method: "POST",
@@ -197,6 +404,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
   };
 
   const handleRenameList = async (listId: number, title: string) => {
+    if (!canEditContent) return;
     try {
       await apiRequest(`/boards/${boardId}/lists/${listId}`, {
         method: "PATCH",
@@ -217,12 +425,15 @@ export function BoardPage({ boardId }: { boardId: number }) {
     title: string,
     description: string,
   ) => {
+    if (!canEditContent) return;
     try {
       await apiRequest(`/boards/${boardId}/lists/${listId}/tasks`, {
         method: "POST",
         body: {
           title: title.trim(),
           description: description.trim(),
+          priority: "medium",
+          due_date: "",
         },
       });
       setActiveComposerListId(null);
@@ -240,11 +451,14 @@ export function BoardPage({ boardId }: { boardId: number }) {
     values: {
       title: string;
       description: string;
+      priority: string;
+      due_date: string;
       list_id: string;
       assignee_id: string;
       is_completed: boolean;
     },
   ) => {
+    if (!canEditContent) return;
     try {
       await apiRequest(`/boards/${boardId}/tasks/${taskIdValue}`, {
         method: "PATCH",
@@ -260,6 +474,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
   };
 
   const handleToggleComplete = async (taskIdValue: number, checked: boolean) => {
+    if (!canEditContent) return;
     try {
       await apiRequest(`/boards/${boardId}/tasks/${taskIdValue}/completion`, {
         method: "PATCH",
@@ -278,6 +493,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
     taskIdValue: number,
     formData: FormData,
   ) => {
+    if (!boardData?.permissions.can_upload_attachments) return;
     try {
       await apiRequest(`/boards/${boardId}/tasks/${taskIdValue}/attachments`, {
         method: "POST",
@@ -296,6 +512,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
     taskIdValue: number,
     attachmentId: number,
   ) => {
+    if (!boardData?.permissions.can_upload_attachments) return;
     try {
       await apiRequest(
         `/boards/${boardId}/tasks/${taskIdValue}/attachments/${attachmentId}`,
@@ -313,6 +530,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
   };
 
   const handleAddComment = async (taskIdValue: number, content: string) => {
+    if (!boardData?.permissions.can_comment) return;
     try {
       await apiRequest(`/boards/${boardId}/tasks/${taskIdValue}/comments`, {
         method: "POST",
@@ -410,6 +628,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
     event: React.DragEvent<HTMLDivElement>,
     listId: number,
   ) => {
+    if (!canEditContent) return;
     if (!dragTaskId || dragLaneId) return;
     event.preventDefault();
     autoScrollBoardLanes(event.clientX);
@@ -425,6 +644,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
     event: React.DragEvent<HTMLDivElement>,
     listId: number,
   ) => {
+    if (!canEditContent) return;
     if (!dragTaskId) return;
     event.preventDefault();
 
@@ -456,6 +676,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
   };
 
   const handleLanesDragOver = (event: React.DragEvent<HTMLElement>) => {
+    if (!canEditContent) return;
     if (!dragLaneId) return;
     event.preventDefault();
     autoScrollBoardLanes(event.clientX);
@@ -463,6 +684,7 @@ export function BoardPage({ boardId }: { boardId: number }) {
   };
 
   const handleLaneDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    if (!canEditContent) return;
     if (!dragLaneId) return;
     event.preventDefault();
 
@@ -505,6 +727,20 @@ export function BoardPage({ boardId }: { boardId: number }) {
     );
   }
 
+  const canEditContent = boardData.permissions.can_edit_content;
+  const hasActiveFilters =
+    filters.assigneeId !== "all" ||
+    filters.priority !== "all" ||
+    filters.timeline !== "all";
+  const visibleLists: BoardList[] = boardData.lists.map((list) => ({
+    ...list,
+    tasks: list.tasks.filter((task) => taskMatchesFilters(task, filters)),
+  }));
+  const visibleTaskCount = visibleLists.reduce(
+    (sum, list) => sum + list.tasks.length,
+    0,
+  );
+
   return (
     <div className="board-shell" style={boardShellStyle(boardData.board)}>
       <div className="board-shell__inner">
@@ -515,9 +751,17 @@ export function BoardPage({ boardId }: { boardId: number }) {
           onInviteUser={handleInviteUser}
           onLeaveBoard={handleLeaveBoard}
           onSaveSettings={handleSaveSettings}
+          onUpdateMemberRole={handleUpdateMemberRole}
         />
 
         <section className="board-canvas">
+          <BoardFiltersMenu
+            boardData={boardData}
+            canEditContent={canEditContent}
+            filters={filters}
+            onChangeFilters={setFilters}
+            visibleTaskCount={visibleTaskCount}
+          />
           <div
             className={`board-lanes ${
               dragLaneId && laneDropTarget?.targetLaneId === null
@@ -531,11 +775,12 @@ export function BoardPage({ boardId }: { boardId: number }) {
             }}
             ref={lanesRef}
           >
-            {boardData.lists.map((list) => (
+            {visibleLists.map((list) => (
               <BoardLane
                 key={list.id}
                 activeComposerListId={activeComposerListId}
                 boardId={boardId}
+                canEditContent={canEditContent}
                 dragLaneId={dragLaneId}
                 dragTaskId={dragTaskId}
                 editingListId={editingListId}
@@ -547,17 +792,20 @@ export function BoardPage({ boardId }: { boardId: number }) {
                 onLaneDragEnd={clearLaneDragState}
                 onLaneDragOver={handleLanesDragOver}
                 onLaneDragStart={(listId) => {
+                  if (!canEditContent) return;
                   setDragLaneId(listId);
                   setActiveComposerListId(null);
                   setEditingListId(null);
                   setAddListOpen(false);
                 }}
                 onOpenComposer={(listId) => {
+                  if (!canEditContent) return;
                   setEditingListId(null);
                   setAddListOpen(false);
                   setActiveComposerListId(listId);
                 }}
                 onOpenListEditor={(listId) => {
+                  if (!canEditContent) return;
                   setActiveComposerListId(null);
                   setAddListOpen(false);
                   setEditingListId(listId);
@@ -566,26 +814,40 @@ export function BoardPage({ boardId }: { boardId: number }) {
                 onRenameList={handleRenameList}
                 onTaskDragEnd={clearTaskDragState}
                 onTaskDragOver={handleTaskDragOver}
-                onTaskDragStart={(taskIdValue) => setDragTaskId(taskIdValue)}
+                onTaskDragStart={(taskIdValue) => {
+                  if (!canEditContent) return;
+                  setDragTaskId(taskIdValue);
+                }}
                 onTaskDrop={handleTaskDrop}
                 onToggleComplete={handleToggleComplete}
                 taskDropTarget={taskDropTarget}
               />
             ))}
-            <AddListLane
-              addListOpen={addListOpen}
-              onCancel={() => setAddListOpen(false)}
-              onCreateList={handleCreateList}
-              onOpen={() => {
-                setEditingListId(null);
-                setActiveComposerListId(null);
-                setAddListOpen(true);
-              }}
-            />
+            {canEditContent ? (
+              <AddListLane
+                addListOpen={addListOpen}
+                onCancel={() => setAddListOpen(false)}
+                onCreateList={handleCreateList}
+                onOpen={() => {
+                  setEditingListId(null);
+                  setActiveComposerListId(null);
+                  setAddListOpen(true);
+                }}
+              />
+            ) : null}
+            {hasActiveFilters && visibleTaskCount === 0 ? (
+              <div className="board-empty board-filter-empty">
+                No tasks match the current filters.
+              </div>
+            ) : null}
           </div>
         </section>
 
-        <BoardFooter memberships={boardData.memberships} />
+        <BoardFooter
+          activities={boardData.activities}
+          boardId={boardId}
+          memberships={boardData.memberships}
+        />
 
         <TaskModal
           boardData={boardData}

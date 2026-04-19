@@ -18,6 +18,7 @@ import {
   boardCoverStyle,
   extractSubmitter,
   formatBoardTimestamp,
+  memberRoleLabel,
 } from "@/lib/utils";
 
 function MembersStack({ members }: { members: BoardMember[] }) {
@@ -98,12 +99,55 @@ function ShareCandidateRow({
   );
 }
 
+function MemberRoleRow({
+  canManageRoles,
+  member,
+  onUpdateRole,
+}: {
+  canManageRoles: boolean;
+  member: BoardMember;
+  onUpdateRole: (userId: number, role: string) => Promise<void>;
+}) {
+  const normalizedRole = memberRoleLabel(member.role);
+  const isOwner = member.role === "owner";
+
+  return (
+    <div className="board-share-row">
+      <div className="board-share-row__identity">
+        <Avatar user={member.user} />
+        <div className="board-share-row__meta">
+          <p className="board-share-row__name">@{member.user.username}</p>
+          <p className="board-share-row__status">
+            {normalizedRole} · Joined {formatBoardTimestamp(member.joined_at)}
+          </p>
+        </div>
+      </div>
+      {canManageRoles && !isOwner ? (
+        <select
+          className="board-select board-role-select"
+          defaultValue={member.role}
+          onChange={(event) =>
+            void onUpdateRole(member.user.id, event.target.value)
+          }
+        >
+          <option value="editor">Editor</option>
+          <option value="viewer">Viewer</option>
+        </select>
+      ) : (
+        <span className="board-role-pill">{normalizedRole}</span>
+      )}
+    </div>
+  );
+}
+
 export function BoardShareMenu({
   boardData,
   onInviteUser,
+  onUpdateMemberRole,
 }: {
   boardData: BoardDetail;
   onInviteUser: (username: string) => Promise<void>;
+  onUpdateMemberRole: (userId: number, role: string) => Promise<void>;
 }) {
   const [username, setUsername] = useState("");
 
@@ -125,18 +169,32 @@ export function BoardShareMenu({
         <p className="board-panel__title">Share Board</p>
         <div className="board-panel__section">
           <p className="board-panel__helper">
-            {boardData.can_manage_board
+            {boardData.permissions.can_manage_members
               ? "Invite your friends into this board."
               : "Only the board owner can send invites."}
           </p>
         </div>
         <div className="board-panel__section">
+          <p className="board-panel__title">Members</p>
+          <div className="board-share-list">
+            {boardData.members.map((member) => (
+              <MemberRoleRow
+                key={member.user.id}
+                canManageRoles={boardData.permissions.can_manage_members}
+                member={member}
+                onUpdateRole={onUpdateMemberRole}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="board-panel__section">
+          <p className="board-panel__title">Invite people</p>
           <div className="board-share-list">
             {boardData.share_candidates.length ? (
               boardData.share_candidates.map((candidate) => (
                 <ShareCandidateRow
                   key={candidate.user.id}
-                  canManage={boardData.can_manage_board}
+                  canManage={boardData.permissions.can_manage_members}
                   candidate={candidate}
                   onInvite={onInviteUser}
                 />
@@ -148,7 +206,7 @@ export function BoardShareMenu({
             )}
           </div>
         </div>
-        {boardData.can_manage_board ? (
+        {boardData.permissions.can_manage_members ? (
           <div className="board-panel__section">
             <form className="board-form-grid" onSubmit={handleSubmit}>
               <label className="board-field__label" htmlFor="share_username">
@@ -452,6 +510,7 @@ export function BoardTopbar({
   onInviteUser,
   onLeaveBoard,
   onSaveSettings,
+  onUpdateMemberRole,
 }: {
   boardData: BoardDetail;
   boardId: number;
@@ -459,17 +518,24 @@ export function BoardTopbar({
   onInviteUser: (username: string) => Promise<void>;
   onLeaveBoard: () => Promise<void>;
   onSaveSettings: (formData: FormData) => Promise<void>;
+  onUpdateMemberRole: (userId: number, role: string) => Promise<void>;
 }) {
   const board = boardData.board;
 
   return (
     <section className="board-topbar">
       <div className="board-topbar__primary">
-        <h1 className="board-topbar__title">{board.title}</h1>
+        <div>
+          <h1 className="board-topbar__title">{board.title}</h1>
+        </div>
       </div>
       <div className="board-topbar__actions">
         <MembersStack members={boardData.members} />
-        <BoardShareMenu boardData={boardData} onInviteUser={onInviteUser} />
+        <BoardShareMenu
+          boardData={boardData}
+          onInviteUser={onInviteUser}
+          onUpdateMemberRole={onUpdateMemberRole}
+        />
         <BoardSettingsMenu
           boardData={boardData}
           boardId={boardId}

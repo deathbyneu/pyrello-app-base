@@ -95,7 +95,7 @@ export function HomePage() {
           <div className="landing-copy">
             <p className="landing-kicker">Project tracking with ease</p>
             <h1 className="landing-title mt-5 text-[#F4F7FA]">
-              Manage projects, track tasks, and stay in sync with your team
+              Manage projects, track tasks, and stay in sync with Pyrello
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-[#B8C6D2]">
               {welcomeText} Open the right board fast, move work between lists,

@@ -16,10 +16,13 @@ from .common import (
     _api_ok,
     _as_bool,
     _board_background_dir,
+    _can_edit_content,
+    _can_manage_members,
     _delete_file_if_exists,
     _is_board_member,
     _move_list_to_position,
     _payload,
+    _create_board_activity,
     _remove_attachment_file,
     _remove_board_background_file,
     _require_board_member,
@@ -29,6 +32,7 @@ from .common import (
     _serialize_task,
     _store_uploaded_image,
     _clean_username,
+    _normalize_member_role,
 )
 
 
@@ -74,6 +78,13 @@ def api_create_board():
     for idx, name in enumerate(default_lists):
         db.session.add(BoardList(board_id=board.id, title=name, position=idx))
 
+    _create_board_activity(
+        board,
+        f"{current_user.username} created the board.",
+        actor=current_user,
+        event_type="board_created",
+    )
+
     db.session.commit()
     return _api_ok(_serialize_board_summary(board), "Board created.", 201)
 
@@ -90,12 +101,18 @@ def api_join_board(board_id: int):
     if not board.allow_public_join:
         return _api_error("This board is private. Ask owner for invitation.", 403)
 
-    db.session.add(BoardMember(board_id=board.id, user_id=current_user.id, role="guest"))
+    db.session.add(BoardMember(board_id=board.id, user_id=current_user.id, role="editor"))
     create_notification(
         user_id=board.owner_id,
         category="board_member",
         message=f"{current_user.username} joined your public board {board.title}.",
         link=board_link(board.id),
+    )
+    _create_board_activity(
+        board,
+        f"{current_user.username} joined the board.",
+        actor=current_user,
+        event_type="member_joined",
     )
     db.session.commit()
     return _api_ok(_serialize_board_summary(board), "Joined board.")
@@ -124,6 +141,12 @@ def api_leave_board(board_id: int):
         category="board_member",
         message=f"{current_user.username} left your board {board.title}.",
         link=board_link(board.id),
+    )
+    _create_board_activity(
+        board,
+        f"{current_user.username} left the board.",
+        actor=current_user,
+        event_type="member_left",
     )
     db.session.commit()
     return _api_ok(_serialize_board_summary(board), "You left the board.")
@@ -178,6 +201,9 @@ def api_update_board_settings(board_id: int):
             return _api_error(str(error))
 
     old_background_name = board.background_image_name
+    previous_title = board.title
+    previous_description = board.description
+    previous_visibility = board.allow_public_join
 
     board.title = title
     board.description = description
@@ -194,6 +220,21 @@ def api_update_board_settings(board_id: int):
 
     if old_background_name and old_background_name != board.background_image_name:
         _delete_file_if_exists(os.path.join(_board_background_dir(), old_background_name))
+
+    if (
+        previous_title != board.title
+        or previous_description != board.description
+        or previous_visibility != board.allow_public_join
+        or remove_background_image
+        or uploaded_background
+    ):
+        _create_board_activity(
+            board,
+            f"{current_user.username} updated board settings.",
+            actor=current_user,
+            event_type="board_updated",
+        )
+        db.session.commit()
 
     return _api_ok(_serialize_board_summary(board), "Board settings updated.")
 
@@ -241,6 +282,8 @@ def api_create_list(board_id: int):
     member = _require_board_member(board)
     if member is None:
         return _api_error("You are not a board member.", 403)
+    if not _can_edit_content(member):
+        return _api_error("Your role only allows viewing this board.", 403)
 
     payload = _payload()
     title = str(payload.get("title", "")).strip()
@@ -259,6 +302,13 @@ def api_create_list(board_id: int):
     next_position = 0 if max_position is None else max_position + 1
     board_list = BoardList(board_id=board.id, title=title, position=next_position)
     db.session.add(board_list)
+    _create_board_activity(
+        board,
+        f"{current_user.username} created list '{board_list.title}'.",
+        actor=current_user,
+        event_type="list_created",
+        board_list=board_list,
+    )
     db.session.commit()
     return _api_ok(
         {"id": board_list.id, "title": board_list.title, "position": board_list.position},
@@ -276,6 +326,8 @@ def api_update_list(board_id: int, list_id: int):
     member = _require_board_member(board)
     if member is None:
         return _api_error("You are not a board member.", 403)
+    if not _can_edit_content(member):
+        return _api_error("Your role only allows viewing this board.", 403)
 
     board_list = db.session.get(BoardList, list_id)
     if board_list is None or board_list.board_id != board.id:
@@ -296,7 +348,16 @@ def api_update_list(board_id: int, list_id: int):
     if duplicate:
         return _api_error("A list with this title already exists.", 409)
 
+    previous_title = board_list.title
     board_list.title = title
+    if previous_title != board_list.title:
+        _create_board_activity(
+            board,
+            f"{current_user.username} renamed list '{previous_title}' to '{board_list.title}'.",
+            actor=current_user,
+            event_type="list_updated",
+            board_list=board_list,
+        )
     db.session.commit()
     return _api_ok(
         {"id": board_list.id, "title": board_list.title, "position": board_list.position},
@@ -313,6 +374,8 @@ def api_move_list(board_id: int, list_id: int):
     member = _require_board_member(board)
     if member is None:
         return _api_error("You are not a board member.", 403)
+    if not _can_edit_content(member):
+        return _api_error("Your role only allows viewing this board.", 403)
 
     board_list = db.session.get(BoardList, list_id)
     if board_list is None or board_list.board_id != board.id:
@@ -324,7 +387,16 @@ def api_move_list(board_id: int, list_id: int):
     except (TypeError, ValueError):
         target_position = 0
 
+    previous_position = board_list.position
     _move_list_to_position(board_list, target_position)
+    if previous_position != board_list.position:
+        _create_board_activity(
+            board,
+            f"{current_user.username} reordered list '{board_list.title}'.",
+            actor=current_user,
+            event_type="list_reordered",
+            board_list=board_list,
+        )
     db.session.commit()
     return _api_ok(
         {"id": board_list.id, "title": board_list.title, "position": board_list.position},
@@ -340,7 +412,7 @@ def api_invite_user_to_board(board_id: int):
         return _api_error("Board not found.", 404)
 
     member = _require_board_member(board)
-    if member is None or member.role != "owner":
+    if member is None or not _can_manage_members(member):
         return _api_error("Only owner can invite users.", 403)
 
     payload = _payload()
@@ -377,5 +449,67 @@ def api_invite_user_to_board(board_id: int):
         message=f"{current_user.username} invited you to board {board.title}.",
         link="/dashboard",
     )
+    _create_board_activity(
+        board,
+        f"{current_user.username} invited @{user.username} to the board.",
+        actor=current_user,
+        event_type="member_invited",
+    )
     db.session.commit()
     return _api_ok(_serialize_board_invite(invite), "Invitation sent.", 201)
+
+
+@api_boards_bp.patch("/boards/<int:board_id>/members/<int:user_id>/role")
+@_api_login_required
+def api_update_board_member_role(board_id: int, user_id: int):
+    board = db.session.get(Board, board_id)
+    if board is None:
+        return _api_error("Board not found.", 404)
+
+    member = _require_board_member(board)
+    if member is None or not _can_manage_members(member):
+        return _api_error("Only owner can change member roles.", 403)
+
+    target_member = BoardMember.query.filter_by(board_id=board.id, user_id=user_id).first()
+    if target_member is None:
+        return _api_error("Board member not found.", 404)
+
+    if _normalize_member_role(target_member.role) == "owner":
+        return _api_error("Owner role cannot be changed.", 409)
+
+    payload = _payload()
+    next_role = _normalize_member_role(payload.get("role"))
+    if next_role not in {"editor", "viewer"}:
+        return _api_error("Role must be editor or viewer.")
+
+    previous_role = _normalize_member_role(target_member.role)
+    if previous_role == next_role:
+        return _api_ok(
+            {
+                "user_id": target_member.user_id,
+                "role": next_role,
+            },
+            "Role already set.",
+        )
+
+    target_member.role = next_role
+    create_notification(
+        user_id=target_member.user_id,
+        category="board_role",
+        message=f"Your role in board {board.title} is now {next_role}.",
+        link=board_link(board.id),
+    )
+    _create_board_activity(
+        board,
+        f"{current_user.username} changed @{target_member.user.username} from {previous_role} to {next_role}.",
+        actor=current_user,
+        event_type="member_role_updated",
+    )
+    db.session.commit()
+    return _api_ok(
+        {
+            "user_id": target_member.user_id,
+            "role": next_role,
+        },
+        "Member role updated.",
+    )

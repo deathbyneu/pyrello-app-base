@@ -16,6 +16,8 @@ type TaskModalProps = {
   onSaveTask: (taskId: number, values: {
     title: string;
     description: string;
+    priority: string;
+    due_date: string;
     list_id: string;
     assignee_id: string;
     is_completed: boolean;
@@ -57,7 +59,9 @@ export function TaskModal({
   if (!selectedTask) return null;
 
   const members = boardData.members ?? [];
-  const canManage = Boolean(boardData.can_manage_board);
+  const canEditContent = boardData.permissions.can_edit_content;
+  const canComment = boardData.permissions.can_comment;
+  const canUploadAttachments = boardData.permissions.can_upload_attachments;
   const attachments = selectedTask.attachments ?? [];
   const comments = selectedTask.comments ?? [];
   const coverImage = selectedTask.cover_image;
@@ -72,6 +76,8 @@ export function TaskModal({
     await onSaveTask(selectedTask.id, {
       title: String(formData.get("title") ?? ""),
       description: String(formData.get("description") ?? ""),
+      priority: String(formData.get("priority") ?? ""),
+      due_date: String(formData.get("due_date") ?? ""),
       list_id: String(formData.get("list_id") ?? ""),
       assignee_id: String(formData.get("assignee_id") ?? ""),
       is_completed: formData.has("is_completed"),
@@ -172,6 +178,7 @@ export function TaskModal({
                   required
                   className="board-input"
                   defaultValue={selectedTask.title}
+                  disabled={!canEditContent}
                   id={`task_title_${selectedTask.id}`}
                   maxLength={200}
                   name="title"
@@ -187,6 +194,7 @@ export function TaskModal({
                 <textarea
                   className="board-textarea"
                   defaultValue={selectedTask.description || ""}
+                  disabled={!canEditContent}
                   id={`task_description_${selectedTask.id}`}
                   name="description"
                   rows={7}
@@ -208,6 +216,7 @@ export function TaskModal({
                   <select
                     className="board-select"
                     defaultValue={String(selectedTask.list_id)}
+                    disabled={!canEditContent}
                     id={`task_list_${selectedTask.id}`}
                     name="list_id"
                   >
@@ -228,7 +237,7 @@ export function TaskModal({
                   <select
                     className="board-select"
                     defaultValue={selectedTask.assignee?.id ?? ""}
-                    disabled={!canManage}
+                    disabled={!boardData.permissions.can_assign_tasks}
                     id={`task_assignee_${selectedTask.id}`}
                     name="assignee_id"
                   >
@@ -240,19 +249,65 @@ export function TaskModal({
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label
+                    className="board-field__label"
+                    htmlFor={`task_priority_${selectedTask.id}`}
+                  >
+                    Priority
+                  </label>
+                  <select
+                    className="board-select"
+                    defaultValue={selectedTask.priority}
+                    disabled={!canEditContent}
+                    id={`task_priority_${selectedTask.id}`}
+                    name="priority"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    className="board-field__label"
+                    htmlFor={`task_due_date_${selectedTask.id}`}
+                  >
+                    Due date
+                  </label>
+                  <input
+                    className="board-input"
+                    defaultValue={selectedTask.due_date ?? ""}
+                    disabled={!canEditContent}
+                    id={`task_due_date_${selectedTask.id}`}
+                    name="due_date"
+                    type="date"
+                  />
+                </div>
               </div>
               <label className="board-checkbox">
                 <input
                   defaultChecked={selectedTask.is_completed}
+                  disabled={!canEditContent}
                   name="is_completed"
                   type="checkbox"
                 />
                 <span>Mark this card as completed</span>
               </label>
+              {!canEditContent ? (
+                <p className="board-panel__helper">
+                  Your current role is read-only on this board.
+                </p>
+              ) : null}
               <div className="board-modal__actions">
-                <button className="board-button board-button--primary" type="submit">
-                  Save card
-                </button>
+                {canEditContent ? (
+                  <button
+                    className="board-button board-button--primary"
+                    type="submit"
+                  >
+                    Save card
+                  </button>
+                ) : null}
               </div>
             </form>
           </section>
@@ -290,7 +345,7 @@ export function TaskModal({
                     </div>
                     <button
                       className="board-button board-button--ghost board-button--compact"
-                      disabled={isUploadingAttachment}
+                      disabled={isUploadingAttachment || !canUploadAttachments}
                       onClick={() => void handleRemoveImage()}
                       type="button"
                     >
@@ -302,28 +357,36 @@ export function TaskModal({
                 <div className="board-empty">No cover image selected.</div>
               )}
             </div>
-            <form className="board-form-grid board-panel__section">
-              <input
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="board-file-input sr-only"
-                id={`task_attachment_${selectedTask.id}`}
-                ref={attachmentInputRef}
-                name="file"
-                onChange={(event) => void handleAttachmentChange(event)}
-                type="file"
-              />
-              <label
-                className="board-file-picker"
-                htmlFor={`task_attachment_${selectedTask.id}`}
-              >
-                <span className="board-file-picker__button">Choose image</span>
-                <span className="board-file-picker__name">{attachmentLabel}</span>
-              </label>
-              <p className="board-panel__helper">
-                PNG, JPG, WEBP, or GIF up to 8 MB. Choosing an image uploads it
-                automatically.
-              </p>
-            </form>
+            {canUploadAttachments ? (
+              <form className="board-form-grid board-panel__section">
+                <input
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="board-file-input sr-only"
+                  id={`task_attachment_${selectedTask.id}`}
+                  ref={attachmentInputRef}
+                  name="file"
+                  onChange={(event) => void handleAttachmentChange(event)}
+                  type="file"
+                />
+                <label
+                  className="board-file-picker"
+                  htmlFor={`task_attachment_${selectedTask.id}`}
+                >
+                  <span className="board-file-picker__button">Choose image</span>
+                  <span className="board-file-picker__name">{attachmentLabel}</span>
+                </label>
+                <p className="board-panel__helper">
+                  PNG, JPG, WEBP, or GIF up to 8 MB. Choosing an image uploads
+                  it automatically.
+                </p>
+              </form>
+            ) : (
+              <div className="board-panel__section">
+                <p className="board-panel__helper">
+                  Your role cannot upload or remove attachments on this board.
+                </p>
+              </div>
+            )}
             <div className="board-panel__section">
               <div className="board-attachments">
                 {galleryAttachments.length ? (
@@ -354,6 +417,7 @@ export function TaskModal({
                           </div>
                           <button
                             className="board-button board-button--ghost board-button--compact"
+                            disabled={!canUploadAttachments}
                             onClick={() =>
                               void onDeleteAttachment(selectedTask.id, attachment.id)
                             }
@@ -372,23 +436,34 @@ export function TaskModal({
             </div>
 
             <p className="board-panel__title">Comments</p>
-            <form className="board-form-grid board-panel__section" onSubmit={handleComment}>
-              <textarea
-                required
-                className="board-textarea"
-                name="content"
-                onChange={(event) => setComment(event.target.value)}
-                placeholder="Write a quick update"
-                rows={4}
-                value={comment}
-              />
-              <button
-                className="board-button board-button--primary board-button--block"
-                type="submit"
+            {canComment ? (
+              <form
+                className="board-form-grid board-panel__section"
+                onSubmit={handleComment}
               >
-                Post comment
-              </button>
-            </form>
+                <textarea
+                  required
+                  className="board-textarea"
+                  name="content"
+                  onChange={(event) => setComment(event.target.value)}
+                  placeholder="Write a quick update"
+                  rows={4}
+                  value={comment}
+                />
+                <button
+                  className="board-button board-button--primary board-button--block"
+                  type="submit"
+                >
+                  Post comment
+                </button>
+              </form>
+            ) : (
+              <div className="board-panel__section">
+                <p className="board-panel__helper">
+                  Viewer role can read comments but cannot post new ones.
+                </p>
+              </div>
+            )}
             <div className="board-panel__section">
               <div className="board-comments">
                 {comments.length ? (

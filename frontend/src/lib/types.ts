@@ -52,6 +52,27 @@ export type Notification = {
   created_at: string | null;
 };
 
+export type BoardActivity = {
+  id: number;
+  event_type: string;
+  message: string;
+  created_at: string | null;
+  actor: UserSummary | null;
+  task_id: number | null;
+  task_title: string | null;
+  list_id: number | null;
+  list_title: string | null;
+};
+
+export type BoardPermissions = {
+  can_manage_board: boolean;
+  can_manage_members: boolean;
+  can_edit_content: boolean;
+  can_comment: boolean;
+  can_upload_attachments: boolean;
+  can_assign_tasks: boolean;
+};
+
 export type TaskAttachment = {
   id: number;
   original_name: string;
@@ -73,6 +94,8 @@ export type Task = {
   id: number;
   title: string;
   description: string;
+  priority: "low" | "medium" | "high";
+  due_date: string | null;
   list_id: number;
   list_title: string | null;
   board_id: number;
@@ -110,11 +133,13 @@ export type BoardList = {
 export type BoardDetail = {
   board: BoardSummary;
   member_role: string;
+  permissions: BoardPermissions;
   can_manage_board: boolean;
   members: BoardMember[];
   pending_invites: BoardInvite[];
   share_candidates: ShareCandidate[];
   memberships: Membership[];
+  activities: BoardActivity[];
   lists: BoardList[];
   selected_task: Task | null;
 };

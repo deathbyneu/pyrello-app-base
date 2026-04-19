@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -164,6 +164,12 @@ class Board(db.Model):
         cascade="all, delete-orphan",
         lazy="dynamic",
     )
+    activities = db.relationship(
+        "BoardActivity",
+        back_populates="board",
+        cascade="all, delete-orphan",
+        order_by="BoardActivity.created_at.desc()",
+    )
 
 
 class BoardMember(db.Model):
@@ -175,7 +181,7 @@ class BoardMember(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     board_id = db.Column(db.Integer, db.ForeignKey("boards.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    role = db.Column(db.String(20), default="guest", nullable=False)
+    role = db.Column(db.String(20), default="editor", nullable=False)
     joined_at = db.Column(db.DateTime, default=utcnow, nullable=False)
 
     board = db.relationship("Board", back_populates="members")
@@ -231,6 +237,8 @@ class Task(db.Model):
     assignee_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, default="", nullable=False)
+    priority = db.Column(db.String(20), default="medium", nullable=False, index=True)
+    due_date = db.Column(db.Date, index=True)
     is_completed = db.Column(db.Boolean, default=False, nullable=False)
     position = db.Column(db.Integer, default=0, nullable=False)
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
@@ -254,6 +262,24 @@ class Task(db.Model):
         cascade="all, delete-orphan",
         order_by="TaskAttachment.created_at.desc()",
     )
+
+
+class BoardActivity(db.Model):
+    __tablename__ = "board_activities"
+
+    id = db.Column(db.Integer, primary_key=True)
+    board_id = db.Column(db.Integer, db.ForeignKey("boards.id"), nullable=False, index=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
+    event_type = db.Column(db.String(40), default="general", nullable=False, index=True)
+    message = db.Column(db.String(255), nullable=False)
+    task_id = db.Column(db.Integer, index=True)
+    task_title = db.Column(db.String(200))
+    list_id = db.Column(db.Integer, index=True)
+    list_title = db.Column(db.String(80))
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False, index=True)
+
+    board = db.relationship("Board", back_populates="activities")
+    actor = db.relationship("User", foreign_keys=[actor_id], backref="board_activities")
 
 
 class TaskComment(db.Model):

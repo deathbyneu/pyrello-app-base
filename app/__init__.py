@@ -9,7 +9,7 @@ from sqlalchemy import inspect, or_, text
 
 from .board_backgrounds import pick_random_default_board_background
 from .extensions import db, login_manager
-from .models import Board, Task, User
+from .models import Board, BoardMember, Task, User
 
 
 def _ensure_legacy_columns() -> None:
@@ -59,6 +59,17 @@ def _ensure_legacy_columns() -> None:
                         "DEFAULT 0 NOT NULL"
                     )
                 )
+        if "priority" not in task_columns:
+            with db.engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "ALTER TABLE tasks ADD COLUMN priority VARCHAR(20) "
+                        "DEFAULT 'medium' NOT NULL"
+                    )
+                )
+        if "due_date" not in task_columns:
+            with db.engine.begin() as connection:
+                connection.execute(text("ALTER TABLE tasks ADD COLUMN due_date DATE"))
 
 
 def _backfill_user_avatars() -> None:
@@ -81,11 +92,24 @@ def _backfill_board_defaults() -> None:
         or_(Board.background_image_name.is_(None), Board.background_image_name == "")
     ).all()
     tasks_without_completion = Task.query.filter(Task.is_completed.is_(None)).all()
+    tasks_without_priority = Task.query.filter(
+        or_(Task.priority.is_(None), Task.priority == "")
+    ).all()
+    memberships_with_legacy_role = BoardMember.query.filter(
+        or_(
+            BoardMember.role.is_(None),
+            BoardMember.role == "",
+            BoardMember.role == "guest",
+            BoardMember.role == "member",
+        )
+    ).all()
 
     if (
         not boards_without_theme
         and not boards_without_background
         and not tasks_without_completion
+        and not tasks_without_priority
+        and not memberships_with_legacy_role
     ):
         return
 
@@ -97,6 +121,10 @@ def _backfill_board_defaults() -> None:
         board.background_image_original_name = default_background["original_name"]
     for task in tasks_without_completion:
         task.is_completed = False
+    for task in tasks_without_priority:
+        task.priority = "medium"
+    for membership in memberships_with_legacy_role:
+        membership.role = "owner" if membership.role == "owner" else "editor"
     db.session.commit()
 
 

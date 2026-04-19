@@ -41,6 +41,53 @@ export function formatBoardTimestamp(value?: string | null): string {
   });
 }
 
+export function formatDueDate(value?: string | null): string {
+  if (!value) return "";
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+export function getDueDateState(
+  value?: string | null,
+): "none" | "overdue" | "today" | "upcoming" {
+  if (!value) return "none";
+
+  const dueDate = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(dueDate.getTime())) return "none";
+
+  const today = new Date();
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  const diffDays = Math.round(
+    (dueDate.getTime() - startOfToday.getTime()) / 86400000,
+  );
+
+  if (diffDays < 0) return "overdue";
+  if (diffDays === 0) return "today";
+  return "upcoming";
+}
+
+export function memberRoleLabel(role?: string | null): string {
+  switch ((role || "").toLowerCase()) {
+    case "owner":
+      return "Owner";
+    case "viewer":
+      return "Viewer";
+    default:
+      return "Editor";
+  }
+}
+
 export function boardCoverStyle(board?: BoardSummary | null): CSSProperties {
   const backgroundImageUrl = resolveApiAssetUrl(board?.background_image_url);
   const imageUrl = backgroundImageUrl || DEFAULT_BOARD_BACKGROUND;

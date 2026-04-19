@@ -5,7 +5,11 @@ import { useEffect, useState } from "react";
 import { Avatar } from "@/components/common/avatar";
 import { Icon } from "@/components/common/icons";
 import type { BoardList, Task } from "@/lib/types";
-import { resolveApiAssetUrl } from "@/lib/utils";
+import {
+  formatDueDate,
+  getDueDateState,
+  resolveApiAssetUrl,
+} from "@/lib/utils";
 
 type TaskDropTarget = {
   listId: number;
@@ -20,6 +24,7 @@ type LaneDropTarget = {
 
 type BoardLaneProps = {
   boardId: number;
+  canEditContent: boolean;
   dragLaneId: number | null;
   dragTaskId: number | null;
   editingListId: number | null;
@@ -29,7 +34,11 @@ type BoardLaneProps = {
   taskDropTarget: TaskDropTarget | null;
   onCancelComposer: () => void;
   onCancelEditList: () => void;
-  onCreateTask: (listId: number, title: string, description: string) => Promise<void>;
+  onCreateTask: (
+    listId: number,
+    title: string,
+    description: string,
+  ) => Promise<void>;
   onLaneDragEnd: () => void;
   onLaneDragOver: (event: React.DragEvent<HTMLElement>) => void;
   onLaneDragStart: (listId: number) => void;
@@ -38,7 +47,10 @@ type BoardLaneProps = {
   onOpenTask: (taskId: number) => void;
   onRenameList: (listId: number, title: string) => Promise<void>;
   onTaskDragEnd: () => void;
-  onTaskDragOver: (event: React.DragEvent<HTMLDivElement>, listId: number) => void;
+  onTaskDragOver: (
+    event: React.DragEvent<HTMLDivElement>,
+    listId: number,
+  ) => void;
   onTaskDragStart: (taskId: number) => void;
   onTaskDrop: (event: React.DragEvent<HTMLDivElement>, listId: number) => void;
   onToggleComplete: (taskId: number, checked: boolean) => Promise<void>;
@@ -46,6 +58,7 @@ type BoardLaneProps = {
 
 function TaskCard({
   boardId,
+  canEditContent,
   dragTaskId,
   onOpenTask,
   onTaskDragEnd,
@@ -55,6 +68,7 @@ function TaskCard({
   taskDropTarget,
 }: {
   boardId: number;
+  canEditContent: boolean;
   dragTaskId: number | null;
   onOpenTask: (taskId: number) => void;
   onTaskDragEnd: () => void;
@@ -66,6 +80,7 @@ function TaskCard({
   const description = String(task.description || "").trim();
   const coverImage = task.cover_image;
   const coverImageUrl = coverImage ? resolveApiAssetUrl(coverImage.url) : "";
+  const dueDateState = getDueDateState(task.due_date);
   const isDropTarget =
     taskDropTarget?.targetTaskId === task.id &&
     taskDropTarget.listId === task.list_id;
@@ -76,10 +91,12 @@ function TaskCard({
         task.is_completed ? "board-card--completed" : ""
       } ${
         dragTaskId === task.id ? "board-card--dragging" : ""
-      } ${isDropTarget ? "board-card--drop-target" : ""}`}
+      } ${isDropTarget ? "board-card--drop-target" : ""} ${
+        canEditContent ? "" : "board-card--readonly"
+      }`}
       data-card-index={task.position}
       data-task-id={task.id}
-      draggable
+      draggable={canEditContent}
       onDragEnd={onTaskDragEnd}
       onDragStart={() => onTaskDragStart(task.id)}
     >
@@ -100,6 +117,7 @@ function TaskCard({
         <label className="board-check">
           <input
             checked={task.is_completed}
+            disabled={!canEditContent}
             onChange={(event) =>
               void onToggleComplete(task.id, event.target.checked)
             }
@@ -130,8 +148,29 @@ function TaskCard({
                 <Icon name="comments" />
                 <span>{task.comments_count}</span>
               </span>
+              <span
+                className={`board-card__badge board-card__badge--priority-${task.priority}`}
+              >
+                {task.priority}
+              </span>
+              {task.due_date ? (
+                <span
+                  className={`board-card__badge ${
+                    dueDateState === "overdue"
+                      ? "board-card__badge--due-overdue"
+                      : dueDateState === "today"
+                        ? "board-card__badge--due-today"
+                        : "board-card__badge--due-upcoming"
+                  }`}
+                >
+                  Due {formatDueDate(task.due_date)}
+                </span>
+              ) : null}
               {task.is_completed ? (
-                <span className="board-card__badge" style={{ color: "#9bdf9d" }}>
+                <span
+                  className="board-card__badge"
+                  style={{ color: "#9bdf9d" }}
+                >
                   Completed
                 </span>
               ) : null}
@@ -153,6 +192,7 @@ function TaskCard({
 
 export function BoardLane({
   boardId,
+  canEditContent,
   dragLaneId,
   dragTaskId,
   editingListId,
@@ -234,7 +274,7 @@ export function BoardLane({
                 </button>
               </div>
             </form>
-          ) : (
+          ) : canEditContent ? (
             <button
               className="board-lane__title-button"
               onClick={() => onOpenListEditor(list.id)}
@@ -242,19 +282,23 @@ export function BoardLane({
             >
               <span className="board-lane__title-text">{list.title}</span>
             </button>
+          ) : (
+            <span className="board-lane__title-text">{list.title}</span>
           )}
         </div>
-        <button
-          aria-label={`Reorder list ${list.title}`}
-          className="board-lane__drag-handle"
-          draggable
-          onDragEnd={onLaneDragEnd}
-          onDragStart={() => onLaneDragStart(list.id)}
-          title="Drag to reorder"
-          type="button"
-        >
-          <Icon name="grip" />
-        </button>
+        {canEditContent ? (
+          <button
+            aria-label={`Reorder list ${list.title}`}
+            className="board-lane__drag-handle"
+            draggable
+            onDragEnd={onLaneDragEnd}
+            onDragStart={() => onLaneDragStart(list.id)}
+            title="Drag to reorder"
+            type="button"
+          >
+            <Icon name="grip" />
+          </button>
+        ) : null}
       </header>
 
       <div
@@ -266,6 +310,7 @@ export function BoardLane({
           <TaskCard
             key={task.id}
             boardId={boardId}
+            canEditContent={canEditContent}
             dragTaskId={dragTaskId}
             onOpenTask={onOpenTask}
             onTaskDragEnd={onTaskDragEnd}
@@ -276,7 +321,7 @@ export function BoardLane({
           />
         ))}
 
-        {activeComposerListId === list.id ? (
+        {canEditContent && activeComposerListId === list.id ? (
           <form
             className="board-composer board-card board-card--composer"
             onSubmit={handleCreateTask}
@@ -298,7 +343,10 @@ export function BoardLane({
               value={cardDescription}
             />
             <div className="board-composer__actions">
-              <button className="board-button board-button--primary" type="submit">
+              <button
+                className="board-button board-button--primary"
+                type="submit"
+              >
                 Create task
               </button>
               <button
@@ -310,7 +358,7 @@ export function BoardLane({
               </button>
             </div>
           </form>
-        ) : (
+        ) : canEditContent ? (
           <button
             className="board-composer__trigger"
             onClick={() => onOpenComposer(list.id)}
@@ -319,6 +367,10 @@ export function BoardLane({
             <Icon name="plus" />
             <span>Add a task</span>
           </button>
+        ) : list.tasks.length ? null : (
+          <div className="board-empty">
+            Viewer role can read this list but cannot add or edit tasks.
+          </div>
         )}
       </div>
     </article>
@@ -347,7 +399,11 @@ export function AddListLane({
   if (!addListOpen) {
     return (
       <div className="board-add-list">
-        <button className="board-add-list__trigger" onClick={onOpen} type="button">
+        <button
+          className="board-add-list__trigger"
+          onClick={onOpen}
+          type="button"
+        >
           <Icon name="plus" />
           <span>Add another list</span>
         </button>

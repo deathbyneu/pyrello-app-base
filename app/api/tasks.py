@@ -12,7 +12,13 @@ from .common import (
     _api_login_required,
     _api_ok,
     _as_bool,
+    _can_comment,
+    _can_edit_content,
+    _can_upload_attachments,
+    _create_board_activity,
     _move_task_to_position,
+    _normalize_task_priority,
+    _parse_due_date,
     _payload,
     _remove_attachment_file,
     _require_board_member,
@@ -54,6 +60,8 @@ def api_create_task(board_id: int, list_id: int):
     member = _require_board_member(board)
     if member is None:
         return _api_error("You are not a board member.", 403)
+    if not _can_edit_content(member):
+        return _api_error("Your role only allows viewing this board.", 403)
 
     board_list = db.session.get(BoardList, list_id)
     if board_list is None or board_list.board_id != board.id:
@@ -62,6 +70,11 @@ def api_create_task(board_id: int, list_id: int):
     payload = _payload()
     title = str(payload.get("title", "")).strip()
     description = str(payload.get("description", "")).strip()
+    priority = _normalize_task_priority(payload.get("priority"))
+    try:
+        due_date = _parse_due_date(payload.get("due_date"))
+    except ValueError as error:
+        return _api_error(str(error))
     if not title:
         return _api_error("Task title is required.")
 
@@ -78,13 +91,15 @@ def api_create_task(board_id: int, list_id: int):
         creator_id=current_user.id,
         title=title,
         description=description,
+        priority=priority,
+        due_date=due_date,
         position=next_position,
     )
     db.session.add(task)
     db.session.flush()
 
     assignee_id = payload.get("assignee_id")
-    if assignee_id is not None and str(assignee_id).strip() != "" and member.role == "owner":
+    if assignee_id is not None and str(assignee_id).strip() != "":
         assignee_id_int = int(assignee_id)
         assignee_member = BoardMember.query.filter_by(
             board_id=board.id, user_id=assignee_id_int
@@ -97,6 +112,15 @@ def api_create_task(board_id: int, list_id: int):
                 message=f"You were assigned task '{task.title}' in board {board.title}.",
                 link=board_link(board.id, task.id),
             )
+
+    _create_board_activity(
+        board,
+        f"{current_user.username} created task '{task.title}' in {board_list.title}.",
+        actor=current_user,
+        event_type="task_created",
+        task=task,
+        board_list=board_list,
+    )
 
     db.session.commit()
     return _api_ok(_serialize_task(task), "Task created.", 201)
@@ -111,6 +135,8 @@ def api_update_task(board_id: int, task_id: int):
     member = _require_board_member(board)
     if member is None:
         return _api_error("You are not a board member.", 403)
+    if not _can_edit_content(member):
+        return _api_error("Your role only allows viewing this board.", 403)
 
     task = db.session.get(Task, task_id)
     if task is None or task.board_id != board.id:
@@ -119,10 +145,24 @@ def api_update_task(board_id: int, task_id: int):
     payload = _payload()
     title = str(payload.get("title", "")).strip()
     description = str(payload.get("description", "")).strip()
+    priority = _normalize_task_priority(payload.get("priority"))
+    try:
+        due_date = _parse_due_date(payload.get("due_date"))
+    except ValueError as error:
+        return _api_error(str(error))
     target_list_id = payload.get("list_id")
     has_completion_value = "is_completed" in payload
     if not title:
         return _api_error("Task title is required.")
+
+    previous_title = task.title
+    previous_description = task.description
+    previous_list = task.list
+    previous_assignee_id = task.assignee_id
+    previous_completed = task.is_completed
+    previous_priority = _normalize_task_priority(task.priority)
+    previous_due_date = task.due_date
+    moved_to_list = None
 
     if target_list_id is not None and str(target_list_id).strip() != "":
         target_list_id_int = int(target_list_id)
@@ -132,31 +172,70 @@ def api_update_task(board_id: int, task_id: int):
             ).first()
             if target_list:
                 _move_task_to_position(task, target_list, len(target_list.tasks))
+                moved_to_list = target_list
 
     task.title = title
     task.description = description
+    task.priority = priority
+    task.due_date = due_date
     if has_completion_value:
         task.is_completed = _as_bool(payload.get("is_completed"))
 
     assignee_id = payload.get("assignee_id")
-    if member.role == "owner":
-        old_assignee_id = task.assignee_id
-        if assignee_id is not None and str(assignee_id).strip() != "":
-            assignee_id_int = int(assignee_id)
-            assignee_member = BoardMember.query.filter_by(
-                board_id=board.id, user_id=assignee_id_int
-            ).first()
-            if assignee_member:
-                task.assignee_id = assignee_id_int
-                if old_assignee_id != assignee_id_int:
-                    create_notification(
-                        user_id=assignee_id_int,
-                        category="task_assignment",
-                        message=f"You were assigned task '{task.title}' in board {board.title}.",
-                        link=board_link(board.id, task.id),
-                    )
+    if assignee_id is not None and str(assignee_id).strip() != "":
+        assignee_id_int = int(assignee_id)
+        assignee_member = BoardMember.query.filter_by(
+            board_id=board.id, user_id=assignee_id_int
+        ).first()
+        if assignee_member:
+            task.assignee_id = assignee_id_int
+            if previous_assignee_id != assignee_id_int:
+                create_notification(
+                    user_id=assignee_id_int,
+                    category="task_assignment",
+                    message=f"You were assigned task '{task.title}' in board {board.title}.",
+                    link=board_link(board.id, task.id),
+                )
+    else:
+        task.assignee_id = None
+
+    activity_message = None
+    activity_type = "task_updated"
+    activity_list = moved_to_list or task.list or previous_list
+    if previous_list and moved_to_list and previous_list.id != moved_to_list.id:
+        activity_message = (
+            f"{current_user.username} moved task '{task.title}' to {moved_to_list.title}."
+        )
+        activity_type = "task_moved"
+    elif previous_completed != task.is_completed:
+        activity_message = (
+            f"{current_user.username} marked task '{task.title}' as completed."
+            if task.is_completed
+            else f"{current_user.username} reopened task '{task.title}'."
+        )
+        activity_type = "task_completion"
+    elif previous_assignee_id != task.assignee_id:
+        if task.assignee:
+            activity_message = (
+                f"{current_user.username} assigned task '{task.title}' to @{task.assignee.username}."
+            )
         else:
-            task.assignee_id = None
+            activity_message = f"{current_user.username} unassigned task '{task.title}'."
+        activity_type = "task_assignment"
+    elif previous_priority != task.priority or previous_due_date != task.due_date:
+        activity_message = f"{current_user.username} updated schedule for task '{task.title}'."
+    elif previous_title != task.title or previous_description != task.description:
+        activity_message = f"{current_user.username} updated task '{task.title}'."
+
+    if activity_message:
+        _create_board_activity(
+            board,
+            activity_message,
+            actor=current_user,
+            event_type=activity_type,
+            task=task,
+            board_list=activity_list,
+        )
 
     db.session.commit()
     return _api_ok(_serialize_task(task, include_comments=True), "Task updated.")
@@ -171,6 +250,8 @@ def api_move_task(board_id: int, task_id: int):
     member = _require_board_member(board)
     if member is None:
         return _api_error("You are not a board member.", 403)
+    if not _can_edit_content(member):
+        return _api_error("Your role only allows viewing this board.", 403)
 
     task = db.session.get(Task, task_id)
     if task is None or task.board_id != board.id:
@@ -192,7 +273,17 @@ def api_move_task(board_id: int, task_id: int):
     except (TypeError, ValueError):
         target_position = 0
 
+    previous_list = task.list
     _move_task_to_position(task, target_list, target_position)
+    if previous_list is None or previous_list.id != target_list.id:
+        _create_board_activity(
+            board,
+            f"{current_user.username} moved task '{task.title}' to {target_list.title}.",
+            actor=current_user,
+            event_type="task_moved",
+            task=task,
+            board_list=target_list,
+        )
     db.session.commit()
     return _api_ok(_serialize_task(task), "Task moved.")
 
@@ -206,6 +297,8 @@ def api_toggle_task_completion(board_id: int, task_id: int):
     member = _require_board_member(board)
     if member is None:
         return _api_error("You are not a board member.", 403)
+    if not _can_edit_content(member):
+        return _api_error("Your role only allows viewing this board.", 403)
 
     task = db.session.get(Task, task_id)
     if task is None or task.board_id != board.id:
@@ -213,6 +306,18 @@ def api_toggle_task_completion(board_id: int, task_id: int):
 
     payload = _payload()
     task.is_completed = _as_bool(payload.get("is_completed"))
+    _create_board_activity(
+        board,
+        (
+            f"{current_user.username} marked task '{task.title}' as completed."
+            if task.is_completed
+            else f"{current_user.username} reopened task '{task.title}'."
+        ),
+        actor=current_user,
+        event_type="task_completion",
+        task=task,
+        board_list=task.list,
+    )
     db.session.commit()
     return _api_ok(_serialize_task(task), "Task updated.")
 
@@ -226,6 +331,8 @@ def api_upload_task_attachment(board_id: int, task_id: int):
     member = _require_board_member(board)
     if member is None:
         return _api_error("You are not a board member.", 403)
+    if not _can_upload_attachments(member):
+        return _api_error("Your role cannot upload attachments on this board.", 403)
 
     task = db.session.get(Task, task_id)
     if task is None or task.board_id != board.id:
@@ -249,6 +356,14 @@ def api_upload_task_attachment(board_id: int, task_id: int):
         size_bytes=stored_upload["size_bytes"],
     )
     db.session.add(attachment)
+    _create_board_activity(
+        board,
+        f"{current_user.username} uploaded an image to task '{task.title}'.",
+        actor=current_user,
+        event_type="attachment_added",
+        task=task,
+        board_list=task.list,
+    )
     db.session.commit()
     return _api_ok(_serialize_attachment(attachment), "Image uploaded.", 201)
 
@@ -262,6 +377,8 @@ def api_delete_task_attachment(board_id: int, task_id: int, attachment_id: int):
     member = _require_board_member(board)
     if member is None:
         return _api_error("You are not a board member.", 403)
+    if not _can_upload_attachments(member):
+        return _api_error("Your role cannot remove attachments on this board.", 403)
 
     task = db.session.get(Task, task_id)
     if task is None or task.board_id != board.id:
@@ -273,6 +390,14 @@ def api_delete_task_attachment(board_id: int, task_id: int, attachment_id: int):
 
     _remove_attachment_file(attachment)
     db.session.delete(attachment)
+    _create_board_activity(
+        board,
+        f"{current_user.username} removed an image from task '{task.title}'.",
+        actor=current_user,
+        event_type="attachment_removed",
+        task=task,
+        board_list=task.list,
+    )
     db.session.commit()
     return _api_ok(message="Attachment removed.")
 
@@ -286,6 +411,8 @@ def api_create_task_comment(board_id: int, task_id: int):
     member = _require_board_member(board)
     if member is None:
         return _api_error("You are not a board member.", 403)
+    if not _can_comment(member):
+        return _api_error("Your role cannot comment on this board.", 403)
 
     task = db.session.get(Task, task_id)
     if task is None or task.board_id != board.id:
@@ -314,5 +441,13 @@ def api_create_task_comment(board_id: int, task_id: int):
             link=board_link(board.id, task.id),
         )
 
+    _create_board_activity(
+        board,
+        f"{current_user.username} commented on task '{task.title}'.",
+        actor=current_user,
+        event_type="comment_added",
+        task=task,
+        board_list=task.list,
+    )
     db.session.commit()
     return _api_ok(_serialize_comment(comment), "Comment posted.", 201)
