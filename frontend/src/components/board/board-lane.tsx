@@ -119,13 +119,13 @@ function TaskCard({
   return (
     <article
       className={[
-        "group rounded-[14px] border border-white/[0.08] bg-[rgba(14,18,25,0.95)] shadow-[0_10px_22px_rgba(0,0,0,0.22)] transition duration-150",
+        "group rounded-[14px] border border-white/8 bg-[rgba(14,18,25,0.95)] shadow-[0_10px_22px_rgba(0,0,0,0.22)] transition duration-150",
         task.is_completed ? "border-emerald-300/20" : "",
         isDragging
           ? "opacity-35 saturate-[0.88] brightness-95 shadow-[0_6px_14px_rgba(0,0,0,0.08)]"
           : "",
         isDropTarget
-          ? "!border-sky-400/50 bg-[rgba(30,64,175,0.18)] shadow-[0_0_0_1px_rgba(96,165,250,0.18),0_12px_28px_rgba(0,0,0,0.18)]"
+          ? "border-sky-400/50! bg-[rgba(30,64,175,0.18)] shadow-[0_0_0_1px_rgba(96,165,250,0.18),0_12px_28px_rgba(0,0,0,0.18)]"
           : "",
         canEditContent ? "cursor-grab" : "cursor-default",
       ].join(" ")}
@@ -145,7 +145,7 @@ function TaskCard({
         >
           <img
             alt={task.title}
-            className="block aspect-[16/10] w-full rounded-t-[14px] object-cover"
+            className="block aspect-16/10 w-full rounded-t-[14px] object-cover"
             src={coverImageUrl}
           />
         </button>
@@ -327,12 +327,12 @@ export function BoardLane({
               onClick={() => onOpenListEditor(list.id)}
               type="button"
             >
-              <span className="block break-words text-base font-extrabold leading-[1.3] text-slate-100">
+              <span className="block wrap-break-word text-base font-extrabold leading-[1.3] text-slate-100">
                 {list.title}
               </span>
             </button>
           ) : (
-            <span className="block break-words text-base font-extrabold leading-[1.3] text-slate-100">
+            <span className="block wrap-break-word text-base font-extrabold leading-[1.3] text-slate-100">
               {list.title}
             </span>
           )}
@@ -355,7 +355,7 @@ export function BoardLane({
       <div
         className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-[18px] pr-1 transition ${
           isCardListTarget
-            ? "bg-sky-500/[0.08] shadow-[inset_0_0_0_1px_rgba(126,181,255,0.2)]"
+            ? "bg-sky-500/8 shadow-[inset_0_0_0_1px_rgba(126,181,255,0.2)]"
             : ""
         }`}
         onDragOver={(event) => onTaskDragOver(event, list.id)}
@@ -391,7 +391,7 @@ export function BoardLane({
               value={cardTitle}
             />
             <textarea
-              className="mt-3 min-h-[4.5rem] w-full resize-y rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3 text-[0.82rem] leading-[1.45] text-slate-100 outline-none placeholder:text-slate-400"
+              className="mt-3 min-h-18 w-full resize-y rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3 text-[0.82rem] leading-[1.45] text-slate-100 outline-none placeholder:text-slate-400"
               onChange={(event) => setCardDescription(event.target.value)}
               placeholder="Add notes or context"
               rows={3}
@@ -460,7 +460,7 @@ export function AddListLane({
         }`}
       >
         <button
-          className="inline-flex min-h-20 w-full items-center justify-start gap-2 rounded-[14px] border border-white/10 bg-white/[0.04] px-4 py-4 text-slate-100 transition hover:border-sky-400/35 hover:bg-[rgba(15,23,42,0.62)]"
+          className="inline-flex min-h-20 w-full items-center justify-start gap-2 rounded-[14px] border border-white/10 bg-white/4 px-4 py-4 text-slate-100 transition hover:border-sky-400/35 hover:bg-[rgba(15,23,42,0.62)]"
           onClick={onOpen}
           type="button"
         >
@@ -474,7 +474,7 @@ export function AddListLane({
   return (
     <div className={addListShellClass}>
       <form
-        className="rounded-[14px] border border-white/10 bg-white/[0.04] p-3"
+        className="rounded-[14px] border border-white/10 bg-white/4 p-3"
         onSubmit={handleSubmit}
       >
         <input

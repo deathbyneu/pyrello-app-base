@@ -8,6 +8,7 @@ from urllib import parse as urllib_parse
 from urllib import request as urllib_request
 
 from flask import current_app
+from werkzeug.datastructures import FileStorage
 
 from .models import Board, BoardList
 
@@ -15,12 +16,15 @@ from .models import Board, BoardList
 AI_TASK_GENERATION_MAX_COUNT = 12
 AI_TASK_GENERATION_DEFAULT_COUNT = 6
 AI_TASK_GENERATION_TIMEOUT_SECONDS = 30
+AI_TASK_DOCUMENT_MAX_BYTES = 6 * 1024 * 1024
+AI_TASK_DOCUMENT_MAX_CHARS = 18000
 AI_FALLBACK_MODELS = (
     "gemini-2.5-flash",
     "gemini-2.0-flash",
     "gemini-1.5-flash",
 )
 VALID_TASK_PRIORITIES = {"low", "medium", "high"}
+AI_DOCUMENT_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
 
 
 def is_ai_task_generation_enabled() -> bool:
@@ -31,12 +35,14 @@ def generate_board_task_drafts(
     board: Board,
     *,
     brief: str,
+    document_text: str = "",
     task_count: int | None = None,
 ) -> dict[str, Any]:
     # Keep the draft pass deterministic enough for review, not free-form chat.
     cleaned_brief = " ".join(str(brief or "").split())
-    if not cleaned_brief:
-        raise ValueError("Project brief is required.")
+    cleaned_document_text = str(document_text or "").strip()
+    if not cleaned_brief and not cleaned_document_text:
+        raise ValueError("Project brief or business document is required.")
 
     normalized_task_count = max(
         1,
@@ -60,6 +66,7 @@ def generate_board_task_drafts(
                             board=board,
                             board_lists=board_lists,
                             brief=cleaned_brief,
+                            document_text=cleaned_document_text,
                             task_count=normalized_task_count,
                         )
                     }
@@ -110,6 +117,7 @@ def _draft_prompt(
     board: Board,
     board_lists: list[BoardList],
     brief: str,
+    document_text: str,
     task_count: int,
 ) -> str:
     # The prompt is list-aware so generated work drops into the board's real workflow.
@@ -144,7 +152,9 @@ def _draft_prompt(
         "- Keep descriptions concise, 1-3 sentences.\n"
         f"Board title: {board.title}\n"
         f"Board description: {board_description}\n"
-        f"Project brief: {brief}\n"
+        f"Project brief: {brief or 'Not provided.'}\n"
+        "Business document excerpt follows.\n"
+        f"{document_text or 'No business document attached.'}\n"
     )
 
 
@@ -314,3 +324,77 @@ def _normalize_task_priority(raw_value: Any) -> str:
     if cleaned in VALID_TASK_PRIORITIES:
         return cleaned
     return "medium"
+
+
+def extract_business_document_text(upload: FileStorage | None) -> tuple[str, str | None]:
+    if upload is None or not upload.filename:
+        return "", None
+
+    file_name = str(upload.filename or "").strip()
+    extension = _document_extension(file_name)
+    if extension not in AI_DOCUMENT_EXTENSIONS:
+        raise ValueError("Only TXT, MD, PDF, and DOCX documents are supported.")
+
+    file_bytes = upload.read()
+    upload.stream.seek(0)
+    if not file_bytes:
+        raise ValueError("Attached document is empty.")
+    if len(file_bytes) > AI_TASK_DOCUMENT_MAX_BYTES:
+        raise ValueError("Business document is too large. Max size is 6 MB.")
+
+    if extension in {".txt", ".md"}:
+        extracted_text = _decode_text_document(file_bytes)
+    elif extension == ".pdf":
+        extracted_text = _extract_pdf_text(file_bytes)
+    else:
+        extracted_text = _extract_docx_text(file_bytes)
+
+    normalized_text = " ".join(extracted_text.split())
+    if not normalized_text:
+        raise ValueError("Could not extract readable text from the document.")
+
+    return normalized_text[:AI_TASK_DOCUMENT_MAX_CHARS], file_name
+
+
+def _document_extension(file_name: str) -> str:
+    lowered = file_name.lower().strip()
+    for extension in AI_DOCUMENT_EXTENSIONS:
+        if lowered.endswith(extension):
+            return extension
+    return ""
+
+
+def _decode_text_document(file_bytes: bytes) -> str:
+    for encoding in ("utf-8", "utf-8-sig", "cp1258", "latin-1"):
+        try:
+            return file_bytes.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    raise ValueError("Could not read this text document.")
+
+
+def _extract_pdf_text(file_bytes: bytes) -> str:
+    try:
+        from pypdf import PdfReader
+    except ImportError as error:  # pragma: no cover - dependency hint
+        raise RuntimeError("PDF support requires pypdf to be installed.") from error
+
+    from io import BytesIO
+
+    reader = PdfReader(BytesIO(file_bytes))
+    pages = []
+    for page in reader.pages[:25]:
+        pages.append(page.extract_text() or "")
+    return "\n".join(pages)
+
+
+def _extract_docx_text(file_bytes: bytes) -> str:
+    try:
+        from docx import Document
+    except ImportError as error:  # pragma: no cover - dependency hint
+        raise RuntimeError("DOCX support requires python-docx to be installed.") from error
+
+    from io import BytesIO
+
+    document = Document(BytesIO(file_bytes))
+    return "\n".join(paragraph.text for paragraph in document.paragraphs)

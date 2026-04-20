@@ -206,7 +206,7 @@ export function HomePage() {
     <div className="relative isolate min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(110,174,255,0.18)_0%,transparent_36%),radial-gradient(circle_at_85%_14%,rgba(110,174,255,0.12)_0%,transparent_28%),linear-gradient(180deg,#0d1114_0%,#12181c_48%,#0c1013_100%)]">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.03),transparent_42%),linear-gradient(rgba(255,255,255,0.028)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.028)_1px,transparent_1px)] opacity-35 [background-size:100%_100%,34px_34px,34px_34px] [mask-image:radial-gradient(circle_at_center,black_44%,transparent_92%)]"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.03),transparent_42%),linear-gradient(rgba(255,255,255,0.028)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.028)_1px,transparent_1px)] opacity-35 bg-size-[100%_100%,34px_34px,34px_34px] mask-[radial-gradient(circle_at_center,black_44%,transparent_92%)]"
       />
       <div
         aria-hidden="true"
@@ -214,11 +214,11 @@ export function HomePage() {
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute left-[min(5vw,3rem)] top-16 h-[22rem] w-[22rem] rounded-full bg-[radial-gradient(circle,rgba(110,174,255,0.28)_0%,rgba(110,174,255,0.12)_48%,transparent_76%)] opacity-70 blur-[72px]"
+        className="pointer-events-none absolute left-[min(5vw,3rem)] top-16 h-88 w-88 rounded-full bg-[radial-gradient(circle,rgba(110,174,255,0.28)_0%,rgba(110,174,255,0.12)_48%,transparent_76%)] opacity-70 blur-[72px]"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute bottom-20 right-[min(4vw,2rem)] h-[18rem] w-[18rem] rounded-full bg-[radial-gradient(circle,rgba(110,174,255,0.18)_0%,rgba(110,174,255,0.08)_44%,transparent_76%)] opacity-70 blur-[72px]"
+        className="pointer-events-none absolute bottom-20 right-[min(4vw,2rem)] h-72 w-[18rem] rounded-full bg-[radial-gradient(circle,rgba(110,174,255,0.18)_0%,rgba(110,174,255,0.08)_44%,transparent_76%)] opacity-70 blur-[72px]"
       />
 
       <LandingHeader />
@@ -261,12 +261,12 @@ export function HomePage() {
           </div>
 
           <div className="relative isolate pt-[0.2rem] md:pb-4">
-            <div className="relative z-[2] grid w-full gap-4 overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(145deg,rgba(18,24,28,0.92)_0%,rgba(14,18,23,0.78)_100%)] p-5 shadow-[0_28px_56px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.06)] animate-[landing-rise_0.55s_ease-out_both_0.06s]">
+            <div className="relative z-2 grid w-full gap-4 overflow-hidden rounded-4xl border border-white/10 bg-[linear-gradient(145deg,rgba(18,24,28,0.92)_0%,rgba(14,18,23,0.78)_100%)] p-5 shadow-[0_28px_56px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.06)] animate-[landing-rise_0.55s_ease-out_both_0.06s]">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute right-[-1.5rem] top-[-3rem] h-[18rem] w-[18rem] rounded-full bg-[radial-gradient(circle,rgba(111,174,253,0.2)_0%,rgba(111,174,253,0.08)_45%,transparent_74%)] blur-[54px]"
+                className="pointer-events-none absolute -right-6 -top-12 h-72 w-[18rem] rounded-full bg-[radial-gradient(circle,rgba(111,174,253,0.2)_0%,rgba(111,174,253,0.08)_45%,transparent_74%)] blur-[54px]"
               />
-              <div className="relative z-[1] grid gap-4 md:grid-cols-3">
+              <div className="relative z-1 grid gap-4 md:grid-cols-3">
                 {laneItems.map((lane) => (
                   <section key={lane.title} className={landingLaneClass}>
                     <p className="text-[0.73rem] font-bold uppercase tracking-[0.22em] text-[#8DBAFF]">
@@ -280,7 +280,7 @@ export function HomePage() {
                         }
                       >
                         {card.focus ? (
-                          <span className="absolute left-1/2 top-3 inline-flex -translate-x-1/2 items-center rounded-full border border-[#6faefd]/16 bg-[linear-gradient(160deg,rgba(17,24,31,0.86)_0%,rgba(13,18,24,0.72)_100%)] px-2 py-1 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-[#7fb2ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.2)] backdrop-blur-[12px]">
+                          <span className="absolute left-1/2 top-3 inline-flex -translate-x-1/2 items-center rounded-full border border-[#6faefd]/16 bg-[linear-gradient(160deg,rgba(17,24,31,0.86)_0%,rgba(13,18,24,0.72)_100%)] px-2 py-1 text-[0.62rem] font-bold uppercase tracking-[0.18em] text-[#7fb2ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_18px_rgba(0,0,0,0.2)] backdrop-blur-md">
                             {card.tag}
                           </span>
                         ) : null}

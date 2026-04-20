@@ -17,6 +17,7 @@ type BoardAiDraftModalProps = {
   onGenerate: (
     brief: string,
     taskCount: number,
+    businessDocument: File | null,
   ) => Promise<AiTaskDraftResponse>;
 };
 
@@ -51,6 +52,7 @@ export function BoardAiDraftModal({
   onGenerate,
 }: BoardAiDraftModalProps) {
   const [brief, setBrief] = useState("");
+  const [businessDocument, setBusinessDocument] = useState<File | null>(null);
   const [taskCount, setTaskCount] = useState(6);
   const [summary, setSummary] = useState("");
   const [drafts, setDrafts] = useState<AiTaskDraft[]>([]);
@@ -62,6 +64,7 @@ export function BoardAiDraftModal({
   useEffect(() => {
     if (!open) {
       setError("");
+      setBusinessDocument(null);
       setSummary("");
       setDrafts([]);
       setSelectedIds({});
@@ -95,8 +98,8 @@ export function BoardAiDraftModal({
   const handleGenerate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const cleanedBrief = brief.trim();
-    if (!cleanedBrief) {
-      setError("Project brief is required.");
+    if (!cleanedBrief && !businessDocument) {
+      setError("Project brief or business document is required.");
       return;
     }
 
@@ -104,7 +107,7 @@ export function BoardAiDraftModal({
     setError("");
     try {
       // Regeneration should replace the working set so review stays explicit.
-      const payload = await onGenerate(cleanedBrief, taskCount);
+      const payload = await onGenerate(cleanedBrief, taskCount, businessDocument);
       setSummary(payload.summary);
       setDrafts(payload.drafts);
       setSelectedIds(
@@ -151,11 +154,6 @@ export function BoardAiDraftModal({
             <h2 className="mt-2 text-[1.45rem] font-extrabold text-slate-50">
               Generate reviewable tasks for {boardTitle}
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Describe the project outcome, scope, or deadline. Pyrello will
-              draft tasks against your existing lists, and nothing is created
-              until you confirm it.
-            </p>
           </div>
           <button
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition hover:border-sky-400/35 hover:text-white"
@@ -180,10 +178,40 @@ export function BoardAiDraftModal({
                   className={`${inputClass} min-h-[11rem] resize-y`}
                   id="ai_task_brief"
                   onChange={(event) => setBrief(event.target.value)}
-                  placeholder="Example: Launch account settings, add role permissions, wire notifications, and finish by next Friday."
+                  placeholder="Write a brief or leave this empty and upload a document."
                   rows={8}
                   value={brief}
                 />
+              </div>
+              <div>
+                <label
+                  className="mb-2 block text-xs font-medium uppercase tracking-[0.08em] text-slate-400"
+                  htmlFor="ai_task_business_document"
+                >
+                  Business document
+                </label>
+                <input
+                  accept=".txt,.md,.pdf,.docx"
+                  className="sr-only"
+                  id="ai_task_business_document"
+                  onChange={(event) =>
+                    setBusinessDocument(event.target.files?.[0] ?? null)
+                  }
+                  type="file"
+                />
+                <label
+                  className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-[16px] border border-white/10 bg-white/5 px-4 py-3 text-slate-100 transition hover:border-blue-500/40 hover:bg-white/[0.08]"
+                  htmlFor="ai_task_business_document"
+                >
+                  <span className="inline-flex items-center justify-center rounded-[12px] border border-sky-400/30 bg-[rgba(37,99,235,0.22)] px-3 py-2 text-sm font-medium text-blue-100">
+                    Upload
+                  </span>
+                  <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-slate-300">
+                    {businessDocument
+                      ? businessDocument.name
+                      : "Attach .txt, .md, .pdf, or .docx"}
+                  </span>
+                </label>
               </div>
               <div>
                 <label
@@ -241,11 +269,11 @@ export function BoardAiDraftModal({
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
                   Preview
                 </p>
-                <p className="mt-1 text-sm text-slate-400">
-                  {drafts.length
-                    ? `${selectedDrafts.length} of ${drafts.length} draft tasks selected`
-                    : "Generate a draft to review tasks before creating them."}
-                </p>
+                {drafts.length ? (
+                  <p className="mt-1 text-sm text-slate-400">
+                    {selectedDrafts.length} of {drafts.length} selected
+                  </p>
+                ) : null}
               </div>
               {drafts.length ? (
                 <button
@@ -337,10 +365,7 @@ export function BoardAiDraftModal({
               </div>
             )}
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-              <p className="text-sm text-slate-400">
-                Nothing will be added until you confirm the selected drafts.
-              </p>
+            <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-white/10 pt-4">
               <button
                 className={buttonPrimaryClass}
                 disabled={!selectedDrafts.length || isGenerating || isConfirming}

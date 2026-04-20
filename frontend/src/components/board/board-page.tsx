@@ -601,17 +601,21 @@ export function BoardPage({ boardId }: { boardId: number }) {
   const handleGenerateAiTaskDrafts = async (
     brief: string,
     taskCount: number,
+    businessDocument: File | null,
   ): Promise<AiTaskDraftResponse> => {
     try {
       // AI stays behind the board API so the provider key never touches the client bundle.
+      const formData = new FormData();
+      formData.append("brief", brief);
+      formData.append("task_count", String(taskCount));
+      if (businessDocument) {
+        formData.append("business_document", businessDocument);
+      }
       return await apiRequest<AiTaskDraftResponse>(
         `/boards/${boardId}/ai-task-drafts`,
         {
           method: "POST",
-          body: {
-            brief,
-            task_count: taskCount,
-          },
+          body: formData,
         },
       );
     } catch (error) {

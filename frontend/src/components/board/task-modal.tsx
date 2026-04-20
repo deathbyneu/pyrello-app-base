@@ -165,7 +165,7 @@ export function TaskModal({
 
   return (
     <div
-      className="fixed inset-0 z-[35] flex items-start justify-center bg-[rgba(3,6,11,0.54)] px-4 pb-4 pt-[calc(4.25rem+env(safe-area-inset-top,0px))] backdrop-blur-[10px] max-md:px-3 max-md:pt-[calc(4rem+env(safe-area-inset-top,0px))]"
+      className="fixed inset-0 z-35 flex items-start justify-center bg-[rgba(3,6,11,0.54)] px-4 pb-4 pt-[calc(4.25rem+env(safe-area-inset-top,0px))] backdrop-blur-[10px] max-md:px-3 max-md:pt-[calc(4rem+env(safe-area-inset-top,0px))]"
       onClick={onClose}
     >
       <div
@@ -220,7 +220,7 @@ export function TaskModal({
                   Description
                 </label>
                 <textarea
-                  className={`${textareaClass} min-h-[10rem]`}
+                  className={`${textareaClass} min-h-40`}
                   defaultValue={selectedTask.description || ""}
                   disabled={!canEditContent}
                   id={`task_description_${selectedTask.id}`}
@@ -352,7 +352,7 @@ export function TaskModal({
             <p className={panelTitleClass}>Images</p>
             <div className="mt-4">
               {attachmentPreviewUrl || coverImageUrl ? (
-                <article className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                <article className="overflow-hidden rounded-2xl border border-white/10 bg-white/3">
                   <div>
                     <img
                       alt={
@@ -390,7 +390,7 @@ export function TaskModal({
                   </div>
                 </article>
               ) : (
-                <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
+                <div className="rounded-2xl border border-dashed border-white/10 bg-white/3 p-4 text-sm text-slate-400">
                   No cover image selected.
                 </div>
               )}
@@ -407,13 +407,13 @@ export function TaskModal({
                   type="file"
                 />
                 <label
-                  className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 transition hover:border-sky-400/30 hover:bg-white/[0.08]"
+                  className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 transition hover:border-sky-400/30 hover:bg-white/8"
                   htmlFor={`task_attachment_${selectedTask.id}`}
                 >
                   <span className="inline-flex min-w-28 items-center justify-center rounded-xl border border-sky-400/30 bg-[rgba(37,99,235,0.22)] px-3 py-2 text-sm font-semibold text-blue-100">
                     Choose image
                   </span>
-                  <span className="min-w-0 break-words text-sm text-slate-100">
+                  <span className="min-w-0 wrap-break-word text-sm text-slate-100">
                     {attachmentLabel}
                   </span>
                 </label>
@@ -437,7 +437,7 @@ export function TaskModal({
                     return (
                       <article
                         key={attachment.id}
-                        className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"
+                        className="overflow-hidden rounded-2xl border border-white/10 bg-white/3"
                       >
                         <a
                           href={attachmentUrl}
@@ -477,7 +477,7 @@ export function TaskModal({
                     );
                   })
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/3 p-4 text-sm text-slate-400">
                     No extra images yet.
                   </div>
                 )}
@@ -518,7 +518,7 @@ export function TaskModal({
                   comments.map((entry) => (
                     <article
                       key={entry.id}
-                      className="rounded-2xl border border-white/10 bg-white/[0.03] p-3"
+                      className="rounded-2xl border border-white/10 bg-white/3 p-3"
                     >
                       <div className="flex items-center gap-3">
                         <Avatar
@@ -540,7 +540,7 @@ export function TaskModal({
                     </article>
                   ))
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/3 p-4 text-sm text-slate-400">
                     No comments yet.
                   </div>
                 )}

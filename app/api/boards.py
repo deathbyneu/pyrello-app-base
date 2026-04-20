@@ -6,7 +6,11 @@ from flask import Blueprint, request
 from flask_login import current_user
 from sqlalchemy import func
 
-from ..ai_tasks import generate_board_task_drafts, is_ai_task_generation_enabled
+from ..ai_tasks import (
+    extract_business_document_text,
+    generate_board_task_drafts,
+    is_ai_task_generation_enabled,
+)
 from ..board_backgrounds import pick_random_default_board_background
 from ..extensions import db
 from ..models import Board, BoardInvite, BoardList, BoardMember, Task, TaskAttachment, User
@@ -191,8 +195,15 @@ def api_generate_ai_task_drafts(board_id: int):
     payload = _payload()
     brief = str(payload.get("brief", "")).strip()
     task_count = payload.get("task_count")
-    if not brief:
-        return _api_error("Project brief is required.")
+    document_upload = request.files.get("business_document")
+    try:
+        document_text, _document_name = extract_business_document_text(document_upload)
+    except ValueError as error:
+        return _api_error(str(error))
+    except RuntimeError as error:
+        return _api_error(str(error), 500)
+    if not brief and not document_text:
+        return _api_error("Project brief or business document is required.")
 
     # Draft generation is review-first on purpose; nothing is persisted here.
     normalized_task_count = None
@@ -206,6 +217,7 @@ def api_generate_ai_task_drafts(board_id: int):
         draft_payload = generate_board_task_drafts(
             board,
             brief=brief,
+            document_text=document_text,
             task_count=normalized_task_count,
         )
     except ValueError as error:
