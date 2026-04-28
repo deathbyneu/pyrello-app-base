@@ -56,7 +56,7 @@ type BoardLaneProps = {
 };
 
 const laneShellClass =
-  "flex w-[17rem] flex-none flex-col rounded-[18px] bg-[rgba(8,12,18,0.82)] p-3 shadow-[0_18px_40px_rgba(0,0,0,0.26)] backdrop-blur-[14px] transition duration-150";
+  "flex w-[17rem] max-h-full flex-none flex-col rounded-[18px] bg-[rgba(8,12,18,0.82)] p-3 shadow-[0_18px_40px_rgba(0,0,0,0.26)] backdrop-blur-[14px] transition duration-150";
 const inputClass =
   "w-full rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-blue-500/40 focus:ring-4 focus:ring-blue-500/15 [color-scheme:dark]";
 const buttonBaseClass =
@@ -66,7 +66,7 @@ const buttonPrimaryClass =
 const buttonGhostClass =
   "border-white/12 bg-white/5 text-slate-100 hover:border-sky-400/35 hover:bg-white/10";
 const addListShellClass =
-  "w-[17rem] flex-none rounded-[18px] bg-[rgba(8,12,18,0.82)] p-3 shadow-[0_18px_40px_rgba(0,0,0,0.26)] backdrop-blur-[14px]";
+  "w-[17rem] max-h-full flex-none rounded-[18px] bg-[rgba(8,12,18,0.82)] p-3 shadow-[0_18px_40px_rgba(0,0,0,0.26)] backdrop-blur-[14px]";
 
 function priorityBadgeClass(priority: Task["priority"]) {
   if (priority === "high") {

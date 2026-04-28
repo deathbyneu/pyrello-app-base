@@ -276,6 +276,8 @@ export function BoardPage({ boardId }: { boardId: number }) {
   const taskId = searchParams.get("task");
   const lanesRef = useRef<HTMLDivElement | null>(null);
   const laneScrollLeftRef = useRef(0);
+  const isPanningRef = useRef(false);
+  const panStartXRef = useRef(0);
   const [boardData, setBoardData] = useState<BoardDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeComposerListId, setActiveComposerListId] = useState<number | null>(
@@ -726,6 +728,41 @@ export function BoardPage({ boardId }: { boardId: number }) {
     };
   };
 
+  const handlePanStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!lanesRef.current) return;
+    const target = e.target as HTMLElement;
+    if (
+      target.closest("button") ||
+      target.closest("input") ||
+      target.closest("textarea") ||
+      target.closest("[data-card-role='task']") ||
+      target.closest("[data-card-role='composer']")
+    ) {
+      return;
+    }
+    isPanningRef.current = true;
+    panStartXRef.current = e.pageX - lanesRef.current.offsetLeft;
+    laneScrollLeftRef.current = lanesRef.current.scrollLeft;
+    lanesRef.current.style.cursor = "grabbing";
+    lanesRef.current.style.userSelect = "none";
+  };
+
+  const handlePanMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPanningRef.current || !lanesRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - lanesRef.current.offsetLeft;
+    const walk = (x - panStartXRef.current) * 1.5;
+    lanesRef.current.scrollLeft = laneScrollLeftRef.current - walk;
+  };
+
+  const handlePanEnd = () => {
+    isPanningRef.current = false;
+    if (lanesRef.current) {
+      lanesRef.current.style.cursor = "";
+      lanesRef.current.style.userSelect = "";
+    }
+  };
+
   const autoScrollBoardLanes = (clientX: number) => {
     if (!lanesRef.current) return;
     const rect = lanesRef.current.getBoundingClientRect();
@@ -892,12 +929,16 @@ export function BoardPage({ boardId }: { boardId: number }) {
             visibleTaskCount={visibleTaskCount}
           />
           <div
-            className="flex min-h-[calc(100vh-14rem)] items-start gap-3 overflow-x-auto overflow-y-visible pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex h-[calc(100vh-14rem)] items-start gap-3 overflow-x-auto overflow-y-hidden pb-4 no-scrollbar"
             onDragOver={handleLanesDragOver}
             onDrop={handleLaneDrop}
             onScroll={(event) => {
               laneScrollLeftRef.current = event.currentTarget.scrollLeft;
             }}
+            onMouseDown={handlePanStart}
+            onMouseMove={handlePanMove}
+            onMouseUp={handlePanEnd}
+            onMouseLeave={handlePanEnd}
             ref={lanesRef}
           >
             {visibleLists.map((list) => (

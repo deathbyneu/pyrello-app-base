@@ -4,7 +4,8 @@ from flask import Blueprint, request
 from flask_login import current_user
 
 from ..extensions import db
-from ..models import Board, BoardList, Task, TaskAttachment, TaskComment
+from ..models import Board, BoardList, Task, TaskAttachment, TaskComment, BoardMember
+from ..utils import board_link, create_notification
 from .common import (
     _api_error,
     _api_login_required,
